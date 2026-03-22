@@ -3,45 +3,58 @@ from core.vault import JosephVault
 from core.analytics import IntelAnalyzer
 from datetime import datetime
 
-# إعدادات الواجهة الرسومية
-st.set_page_config(page_title="JOSEPH FAHMY - SOVEREIGN v10", layout="wide")
+# إعدادات الصفحة
+st.set_page_config(page_title="JOSEPH FAHMY - SOVEREIGN", layout="wide")
 
-# التصميم الأسود والذهبي (Premium Dark Theme)
+# تصحيح الـ CSS (الخطأ كان هنا)
 st.markdown("""
     <style>
     .main { background-color: #050505; color: #D4AF37; }
-    .stTextInput input { border: 1px solid #D4AF37; background: #111; color: #D4AF37; }
-    .stButton button { background: linear-gradient(45deg, #D4AF37, #8A6D3B); color: black; border: none; }
+    .stTextInput input { border: 1px solid #D4AF37 !important; background-color: #111 !important; color: #D4AF37 !important; }
+    .stButton button { background: linear-gradient(45deg, #D4AF37, #8A6D3B); color: black !important; border: none; font-weight: bold; width: 100%; }
     </style>
     """, unsafe_allow_headers=True)
 
 def main():
-    st.title("🛡️ SOVEREIGN COMMAND CENTER")
-    st.write(f"System Status: <span style='color:#00FF41'>ACTIVE</span>", unsafe_allow_headers=True)
+    st.title("🛡️ SOVEREIGN COMMAND CENTER v10")
+    st.write(f"System Status: <span style='color:#00FF41'>ONLINE</span>", unsafe_allow_headers=True)
     
-    vault = JosephVault()
-    analyzer = IntelAnalyzer()
+    # تهيئة المحركات من مجلد core
+    try:
+        vault = JosephVault()
+        analyzer = IntelAnalyzer()
+    except Exception as e:
+        st.error(f"Error initializing core modules: {e}")
+        return
 
     col1, col2 = st.columns([1, 2])
 
     with col1:
         st.subheader("Target Intelligence")
-        target = st.text_input("Enter Target ID/Number")
-        if st.button("RUN DEEP ANALYSIS"):
+        target = st.text_input("Enter Target ID/Number", key="target_input")
+        if st.button("EXECUTE ANALYSIS"):
             if target:
-                with st.spinner("Analyzing Patterns..."):
-                    # تشفير وحفظ الطلب صامتاً
-                    vault.secure_save(f"REQ_{target}", f"Analysis initiated at {datetime.now()}")
-                    st.session_state['last_target'] = target
+                with st.spinner("Processing..."):
+                    # حفظ الطلب في الخزنة
+                    vault.secure_store(f"WEB_REQ_{target}", f"Request at {datetime.now()}")
+                    st.session_state['active_target'] = target
             else:
-                st.warning("Please enter a target.")
+                st.warning("Please provide a Target ID.")
 
     with col2:
-        st.subheader("Operation Logs")
-        if 'last_target' in st.session_state:
-            st.code(f">>> Target: {st.session_state['last_target']}\n>>> Status: Encrypted & Vaulted\n>>> Analysis: Pattern Recognition Online")
+        st.subheader("Operation Terminal")
+        if 'active_target' in st.session_state:
+            t = st.session_state['active_target']
+            st.code(f">>> ACCESSING CORE...\n>>> TARGET: {t}\n>>> ENCRYPTION: AES-256 GCM\n>>> STATUS: DATA VAULTED")
+            
+            # عرض السجلات الأخيرة من الخزنة
+            st.write("---")
+            st.write("Recent Activity Log:")
+            logs = vault.get_all_logs()
+            for log in logs[:5]: # عرض آخر 5 سجلات
+                st.text(f"[{log[1]}] {log[0]}")
         else:
-            st.info("System Idle. Waiting for Target input.")
+            st.info("Waiting for Command Input...")
 
 if __name__ == "__main__":
     main()
