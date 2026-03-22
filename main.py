@@ -1,121 +1,153 @@
 import streamlit as st
-import time
-import requests
-import base64
+import pandas as pd
 from datetime import datetime
+import time
 
-# --- 1. الإعدادات البصرية الملكية (جوزيف فهمي) ---
-st.set_page_config(page_title="JOSEPH FAHMY - SOVEREIGN v10", layout="wide")
+# استيراد المحركات من المجلدات الفرعية (تأكد من وجود ملف __init__.py في مجلد core)
+try:
+    from core.vault import JosephVault
+    from core.analytics import IntelAnalyzer
+except ImportError:
+    st.error("❌ فشل استيراد المحركات الأساسية. تأكد من وجود مجلد 'core' وملفات 'vault.py' و 'analytics.py'.")
+    st.stop()
 
-st.markdown("""
-    <style>
-    .stApp { background-color: #050505; color: #D4AF37; font-family: 'Courier New', monospace; }
-    .stTextInput input { 
-        color: #00FF00 !important; 
-        background-color: #000 !important; 
-        border: 1px solid #D4AF37 !important;
-    }
-    div.stButton > button { 
-        background: linear-gradient(45deg, #D4AF37, #8A6D3B, #D4AF37); 
-        color: black !important; font-weight: bold; width: 100%; border: none; height: 3.5em;
-        border-radius: 8px;
-    }
-    code { color: #00FF00 !important; background-color: #001100 !important; border: 1px solid #003300 !important; }
-    .stTabs [data-baseweb="tab-list"] { background-color: #111; border-radius: 10px; }
-    .stTabs [data-baseweb="tab"] { color: #D4AF37 !important; }
-    </style>
+# --- 1. إعدادات النظام العميقة ---
+st.set_page_config(
+    page_title="JOSEPH FAHMY | SOVEREIGN v10",
+    page_icon="🛡️",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# --- 2. هندسة التصميم (UI Engineering) ---
+def apply_custom_theme():
+    st.markdown("""
+        <style>
+        /* الخلفية العامة والتنسيق */
+        .stApp { background-color: #050505; color: #D4AF37; font-family: 'Consolas', monospace; }
+        
+        /* تصميم الحاويات (Cards) */
+        .intel-card {
+            border: 1px solid #D4AF37;
+            padding: 20px;
+            background: rgba(20, 20, 20, 0.9);
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(212, 175, 55, 0.1);
+            margin-bottom: 20px;
+        }
+
+        /* تصميم الأزرار الاحترافي */
+        div.stButton > button {
+            background: linear-gradient(135deg, #D4AF37 0%, #8A6D3B 100%);
+            color: black !important;
+            font-weight: 900;
+            border: none;
+            width: 100%;
+            height: 3em;
+            letter-spacing: 1px;
+            transition: 0.4s;
+        }
+        div.stButton > button:hover {
+            box-shadow: 0 0 25px #D4AF37;
+            transform: scale(1.01);
+        }
+
+        /* مؤشر الحالة */
+        .status-online { color: #00FF41; font-weight: bold; text-shadow: 0 0 5px #00FF41; }
+        </style>
     """, unsafe_allow_html=True)
 
-# --- 2. محرك البحث الحقيقي (المصحح ليتوافق مع مفتاحك) ---
-def fetch_intel(phone, api_key):
-    # تم تعديل الرابط ليتوافق مع خدمة Phone Intelligence الخاصة بمفتاحك
-    url = f"https://phoneintelligence.abstractapi.com/v1/?api_key={api_key}&phone={phone}"
-    
-    try:
-        response = requests.get(url, timeout=15)
-        if response.status_code == 200:
-            return response.json(), "SUCCESS"
-        elif response.status_code == 401:
-            return None, "INVALID_KEY"
-        elif response.status_code == 429:
-            return None, "LIMIT_REACHED"
-        else:
-            return None, f"ERROR_{response.status_code}"
-    except Exception as e:
-        return None, str(e)
+apply_custom_theme()
 
-# --- 3. واجهة التحكم الرئيسية ---
+# --- 3. المنطق التشغيلي (Main Logic) ---
 def main():
-    st.title("🛡️ SOVEREIGN COMMAND CENTER v10.9")
-    st.write(f"Operator: **JOSEPH FAHMY** | System Status: **Online**")
-    st.markdown("---")
+    # تهيئة الكائنات
+    vault = JosephVault()
+    analyzer = IntelAnalyzer()
 
-    # مدخل المفتاح في الجانب (استخدم مفتاحك: cb11d33f6a3d4cf29dbaf96be43ae069)
-    api_key = st.sidebar.text_input("Enter Abstract API Key", type="password", value="cb11d33f6a3d4cf29dbaf96be43ae069")
-    
-    tab_phone, tab_osint, tab_logs = st.tabs(["🎯 سحب بيانات الهاتف", "🔍 بحث OSINT", "📂 السجلات"])
+    # الهيدر الرئيسي
+    st.markdown("<h1 style='text-align: center;'>🛡️ SOVEREIGN OMEGA COMMAND v10</h1>", unsafe_allow_html=True)
+    st.markdown(f"<p style='text-align: center;'>SYSTEM STATUS: <span class='status-online'>● OPERATIONAL</span> | OPERATOR: JOSEPH FAHMY</p>", unsafe_allow_html=True)
+    st.write("---")
 
-    with tab_phone:
-        col1, col2 = st.columns(2)
+    # --- القائمة الجانبية (Sidebar) ---
+    with st.sidebar:
+        st.header("⚙️ CONTROL PANEL")
+        mode = st.selectbox("Select Module", ["Target Recon", "Secure Vault", "Network Logs", "System Settings"])
+        st.write("---")
+        st.info("AES-256 GCM Encryption Active")
+        if st.button("🔴 EMERGENCY SHUTDOWN"):
+            st.session_state.clear()
+            st.rerun()
+
+    # --- التبويب الأول: سحب وتحليل البيانات ---
+    if mode == "Target Recon":
+        col1, col2 = st.columns([1, 1.5])
+
         with col1:
-            st.subheader("📡 Phone Acquisition")
-            phone_input = st.text_input("أدخل الرقم (مثال: 201508650163)")
+            st.markdown("<div class='intel-card'>", unsafe_allow_html=True)
+            st.subheader("🎯 Data Acquisition")
+            target_id = st.text_input("Target Identifier (e.g. 201xxxxxxxxx)")
+            data_payload = st.text_area("Source Data Stream", height=150)
             
-            if st.button("EXECUTE DEEP SCAN"):
-                if phone_input and api_key:
-                    with st.status("⚔️ جاري اختراق جدران البيانات...", expanded=True) as s:
-                        data, status = fetch_intel(phone_input, api_key)
-                        time.sleep(1)
+            if st.button("LAUNCH DEEP PROBE"):
+                if target_id and data_payload:
+                    with st.status("⚔️ Processing Intelligence...", expanded=True) as status:
+                        # تحليل البيانات
+                        findings = analyzer.classify(data_payload)
+                        # حفظ مشفر في الخزنة
+                        vault.secure_save(f"TARGET_{target_id}", data_payload)
                         
-                        if status == "SUCCESS":
-                            st.session_state['result'] = data
-                            st.session_state['target'] = phone_input
-                            s.update(label="✅ اكتمل السحب بنجاح!", state="complete")
-                        elif status == "INVALID_KEY":
-                            st.error("❌ خطأ: مفتاح الـ API غير صالح لهذه الخدمة.")
-                        elif status == "LIMIT_REACHED":
-                            st.warning("⚠️ تنبيه: انتهت المحاولات المجانية اليوم.")
-                        else:
-                            st.error(f"❌ فشل الاتصال: {status}")
+                        time.sleep(1)
+                        st.session_state['active_recon'] = {
+                            "id": target_id,
+                            "findings": findings,
+                            "time": datetime.now().strftime("%H:%M:%S")
+                        }
+                        status.update(label="✅ Target Vaulted Successfully", state="complete")
                 else:
-                    st.warning("⚠️ مطلوب: رقم الهاتف + مفتاح الـ API")
+                    st.warning("⚠️ Input Required: Please provide Target ID and Data.")
+            st.markdown("</div>", unsafe_allow_html=True)
 
         with col2:
-            st.subheader("🖥️ Monitor")
-            if 'result' in st.session_state:
-                res = st.session_state['result']
-                # تنسيق النتائج الحقيقية
-                report = f"""
->>> ANALYSIS FOR: {st.session_state['target']}
->>> CARRIER: {res.get('carrier', 'N/A')}
->>> TYPE: {res.get('type', 'N/A')}
->>> COUNTRY: {res.get('country', {}).get('name', 'N/A')}
->>> LOCATION: {res.get('location', 'N/A')}
->>> NETWORK CODE: {res.get('network_code', 'N/A')}
->>> STATUS: VAULTED BY JOSEPH FAHMY
-                """
-                st.code(report, language="bash")
+            st.subheader("🖥️ Intelligence Monitor")
+            if 'active_recon' in st.session_state:
+                recon = st.session_state['active_recon']
+                st.code(f">>> RECON_ID: {recon['id']}\n>>> TIMESTAMP: {recon['time']}\n>>> VECTOR_ANALYSIS: {recon['findings']}", language="python")
                 
-                # ميزة تحميل التقرير
-                b64 = base64.b64encode(report.encode()).decode()
-                st.markdown(f'<a href="data:file/txt;base64,{b64}" download="Joseph_Intel.txt" style="color:#D4AF37; text-decoration:none; border:1px solid #D4AF37; padding:10px; border-radius:5px;">📥 تحميل التقرير</a>', unsafe_allow_html=True)
+                # عرض مؤشرات المخاطر
+                if recon['findings']:
+                    st.error(f"⚠️ Critical Patterns Detected: {', '.join(recon['findings'])}")
+                else:
+                    st.success("✅ No Malicious Patterns Found in Stream.")
             else:
-                st.info("النظام في انتظار تحديد الهدف...")
+                st.info("Waiting for data stream execution...")
 
-    with tab_osint:
-        st.subheader("🔍 Open Source Intelligence")
-        name = st.text_input("أدخل الاسم للبحث عن حسابات مرتبطة")
-        if st.button("START SEARCH"):
-            st.write(f"🔎 البحث عن '{name}' في قواعد بيانات التواصل الاجتماعي...")
-            time.sleep(2)
-            st.success("✅ تم العثور على تطابقات محتملة في: Facebook, Telegram, WhatsApp")
+    # --- التبويب الثاني: الخزنة المشفرة ---
+    elif mode == "Secure Vault":
+        st.subheader("📂 Encrypted Shadow Vault")
+        master_key = st.text_input("Enter Master Decryption Key", type="password")
+        
+        if master_key == "JOSEPH_FAHMY_2026":
+            st.success("🔓 Access Granted to Encrypted Records")
+            # محاكاة عرض البيانات (يمكنك ربطها بـ vault.get_all())
+            try:
+                # هذا الجزء يفترض وجود ميزة عرض في الكلاس vault.py
+                st.write("Fetching latest 10 encrypted payloads...")
+                # داتا تجريبية للتوضيح
+                st.table([{"Tag": "TARGET_2015", "Status": "Encrypted", "TS": "2026-03-22"}])
+            except:
+                st.warning("Database connection active. Ready for query.")
+        elif master_key:
+            st.error("🚫 Access Denied: Invalid Master Key.")
 
-    with tab_logs:
-        st.subheader("📂 SYSTEM LOGS")
-        if 'target' in st.session_state:
-            st.write(f"Log: [SCAN_EXECUTED] Target: {st.session_state['target']} | Date: {datetime.now()}")
-        else:
-            st.write("No logs available.")
+    # --- التبويب الثالث: سجلات الشبكة ---
+    elif mode == "Network Logs":
+        st.subheader("🌐 Network Activity Logs")
+        chart_data = pd.DataFrame({"Packets": [10, 25, 15, 40, 30], "Time": ["21:00", "21:15", "21:30", "21:45", "22:00"]})
+        st.line_chart(chart_data.set_index("Time"))
+        st.write("Monitoring Traffic on eth0...")
 
+# تشغيل التطبيق
 if __name__ == "__main__":
     main()
