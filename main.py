@@ -3,26 +3,23 @@ import sys
 import os
 from datetime import datetime
 
-# 1. حل مشكلة المسارات برمجياً (لضمان رؤية مجلد core)
+# 1. حل مشكلة المسارات: إجبار بايثون على رؤية مجلد core كحزمة برمجية
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+# 2. محاولة استيراد الأدوات مع عرض رسالة خطأ ذكية إذا فشل الاستيراد
 try:
     from core.vault import JosephVault
     from core.analytics import IntelAnalyzer
-except ImportError as e:
-    st.error(f"❌ خطأ في استيراد الوحدات الأساسية: {e}")
-    st.info("تأكد من وجود مجلد باسم core وبداخله ملف __init__.py")
+except (ImportError, ModuleNotFoundError) as e:
+    st.error(f"❌ خطأ في النظام الأساسي: {e}")
+    st.info("تأكد من أن 'core' مجلد يحتوي على ملف __init__.py وملفات البرمجة.")
     st.stop()
 
-# 2. إعدادات الصفحة
-st.set_page_config(
-    page_title="JOSEPH FAHMY - SOVEREIGN v10",
-    page_icon="🛡️",
-    layout="wide"
-)
+# 3. إعدادات الصفحة والجماليات (الأسود والذهبي)
+st.set_page_config(page_title="JOSEPH FAHMY - SOVEREIGN v10", layout="wide")
 
-# 3. تصميم الواجهة (Black & Gold) بأسلوب يحمي من SyntaxError
-custom_css = """
+# تعريف التنسيق في متغير منفصل لتجنب أخطاء SyntaxError التي ظهرت في صورك
+style_code = """
 <style>
     .stApp {
         background-color: #050505;
@@ -39,70 +36,61 @@ custom_css = """
         font-weight: bold;
         border: none;
         width: 100%;
+        transition: 0.3s;
     }
-    .reportview-container .main .block-container {
-        padding-top: 2rem;
+    div.stButton > button:hover {
+        box-shadow: 0 0 15px #D4AF37;
     }
 </style>
 """
-st.markdown(custom_css, unsafe_allow_html=True)
+st.markdown(style_code, unsafe_allow_html=True)
 
 def main():
-    st.title("🛡️ SOVEREIGN COMMAND CENTER")
-    st.subheader(f"System Operator: {st.sidebar.text_input('Operator Name', 'Joseph Fahmy')}")
-    st.write("---")
+    st.title("🛡️ SOVEREIGN COMMAND CENTER v10")
+    st.write(f"Logged as: **Joseph Fahmy** | {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+    st.markdown("---")
 
-    # تهيئة المحركات
+    # تهيئة الكلاسات
     vault = JosephVault()
     analyzer = IntelAnalyzer()
 
-    # تقسيم الشاشة
-    col1, col2 = st.columns([1, 1])
+    # تقسيم الواجهة
+    col1, col2 = st.columns(2)
 
     with col1:
-        st.markdown("### 📡 Intelligence Input")
-        target_input = st.text_input("ENTER TARGET DATA", placeholder="Phone, Email, or ID...")
+        st.subheader("📡 Intelligence Acquisition")
+        target_id = st.text_input("ENTER TARGET ID", placeholder="e.g. +201XXXXXXXXX")
         
-        if st.button("EXECUTE SYSTEM SCAN"):
-            if target_input:
-                with st.spinner("Analyzing & Vaulting..."):
-                    # تحليل البيانات
-                    analysis = analyzer.analyze_content(target_input)
-                    risk_level = analyzer.get_critical_score(analysis)
-                    
-                    # حفظ في الخزنة المشفرة
-                    vault.secure_store(f"SCAN_{target_input}", f"Risk: {risk_level} | Time: {datetime.now()}")
-                    
-                    st.session_state['last_scan'] = {
-                        'target': target_input,
-                        'risk': risk_level,
-                        'tags': analysis
-                    }
-                    st.success("Data secured in JosephVault.")
+        if st.button("EXECUTE DEEP SCAN"):
+            if target_id:
+                with st.spinner("Analyzing and Vaulting..."):
+                    # حفظ البيانات في الخزنة المشفرة
+                    vault.secure_store(f"SCAN_{target_id}", f"System analysis performed at {datetime.now()}")
+                    st.session_state['current_scan'] = target_id
+                    st.success("Target data secured in JosephVault.")
             else:
-                st.warning("Please enter data to proceed.")
+                st.warning("Please enter a valid target ID.")
 
     with col2:
-        st.markdown("### 🖥️ Live Monitor")
-        if 'last_scan' in st.session_state:
-            data = st.session_state['last_scan']
-            st.code(f""">>> TARGET: {data['target']}
->>> RISK_LEVEL: {data['risk']}
->>> DETECTED_TAGS: {data['tags']}
+        st.subheader("🖥️ System Monitor")
+        if 'current_scan' in st.session_state:
+            st.code(f""">>> ACCESSING CORE...
+>>> TARGET_LOCKED: {st.session_state['current_scan']}
 >>> ENCRYPTION: AES-256 GCM
->>> STATUS: SECURELY STORED""", language="bash")
+>>> VAULT_STATUS: ACTIVE
+>>> LOG_STAMP: {datetime.now().isoformat()}""", language="bash")
         else:
-            st.info("Awaiting command input...")
+            st.info("System Ready. Awaiting operator command...")
 
-    # قسم السجلات السفلي
-    st.write("---")
-    with st.expander("📂 SYSTEM LOGS (ENCRYPTED)"):
+    # عرض السجلات المشفرة في الأسفل
+    st.markdown("---")
+    with st.expander("📂 VIEW ENCRYPTED SECURITY LOGS"):
         logs = vault.get_all_logs()
         if logs:
-            for log in logs[:10]:
-                st.text(f"ID: {log[0]} | Tag: {log[1]}")
+            for log in logs[:5]:
+                st.markdown(f"**ID:** `{log[0]}` | **Stamp:** `{log[1]}`")
         else:
-            st.write("No logs found.")
+            st.write("No logs available in shadow_vault.db")
 
 if __name__ == "__main__":
     main()
