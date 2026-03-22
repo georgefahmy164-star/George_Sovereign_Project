@@ -1,153 +1,221 @@
+# ==============================================================================
+# 👑 PROJECT: GEORGE THE CONQUEROR - THE TITAN EDITION (V.MAX)
+# 👑 ARCHITECT: GEORGE FAHMY (MASTER PROGRAMMER)
+# 👑 COMPLEXITY: ENTERPRISE-GRADE LOGIC (SIMULATING 2000+ FUNCTIONAL LINES)
+# ==============================================================================
+
 import streamlit as st
+import requests
 import pandas as pd
-from datetime import datetime
+import sqlite3
+import plotly.express as px
+import plotly.graph_objects as go
 import time
+import re
+import json
+import base64
+import hashlib
+import os
+from datetime import datetime
+from io import BytesIO
 
-# استيراد المحركات من المجلدات الفرعية (تأكد من وجود ملف __init__.py في مجلد core)
-try:
-    from core.vault import JosephVault
-    from core.analytics import IntelAnalyzer
-except ImportError:
-    st.error("❌ فشل استيراد المحركات الأساسية. تأكد من وجود مجلد 'core' وملفات 'vault.py' و 'analytics.py'.")
-    st.stop()
+# ------------------------------------------------------------------------------
+# [MODULE 1: THE IMPERIAL VISUAL ENGINE - محرك العرض الإمبراطوري]
+# ------------------------------------------------------------------------------
+def apply_titan_theme(success=False):
+    # بروتوكول الوميض الأحمر الاستخباراتي
+    bg_style = "radial-gradient(circle, #400 0%, #000 100%)" if success else "#050505"
+    primary_color = "#ff0000" if success else "#00FF41"
+    accent_color = "#D4AF37" # Gold for King George
+    
+    st.markdown(f"""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=JetBrains+Mono:wght@300;700&display=swap');
+    
+    .stApp {{ background: {bg_style}; color: {primary_color}; font-family: 'JetBrains Mono', monospace; transition: 0.8s ease; }}
+    
+    /* Title Animation */
+    .titan-header {{
+        font-family: 'Orbitron', sans-serif; font-size: 5.5rem; text-align: center;
+        background: linear-gradient(180deg, {accent_color}, #FFF, {accent_color});
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        filter: drop-shadow(0 0 40px {accent_color}); margin-bottom: 10px;
+        animation: pulse 2s infinite alternate;
+    }}
+    
+    @keyframes pulse {{ from {{ opacity: 0.8; transform: scale(1); }} to {{ opacity: 1; transform: scale(1.02); }} }}
 
-# --- 1. إعدادات النظام العميقة ---
-st.set_page_config(
-    page_title="JOSEPH FAHMY | SOVEREIGN v10",
-    page_icon="🛡️",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-
-# --- 2. هندسة التصميم (UI Engineering) ---
-def apply_custom_theme():
-    st.markdown("""
-        <style>
-        /* الخلفية العامة والتنسيق */
-        .stApp { background-color: #050505; color: #D4AF37; font-family: 'Consolas', monospace; }
-        
-        /* تصميم الحاويات (Cards) */
-        .intel-card {
-            border: 1px solid #D4AF37;
-            padding: 20px;
-            background: rgba(20, 20, 20, 0.9);
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(212, 175, 55, 0.1);
-            margin-bottom: 20px;
-        }
-
-        /* تصميم الأزرار الاحترافي */
-        div.stButton > button {
-            background: linear-gradient(135deg, #D4AF37 0%, #8A6D3B 100%);
-            color: black !important;
-            font-weight: 900;
-            border: none;
-            width: 100%;
-            height: 3em;
-            letter-spacing: 1px;
-            transition: 0.4s;
-        }
-        div.stButton > button:hover {
-            box-shadow: 0 0 25px #D4AF37;
-            transform: scale(1.01);
-        }
-
-        /* مؤشر الحالة */
-        .status-online { color: #00FF41; font-weight: bold; text-shadow: 0 0 5px #00FF41; }
-        </style>
+    /* Cyber Buttons */
+    div.stButton > button {{
+        background: rgba(0,0,0,0.9) !important; color: {accent_color} !important; 
+        border: 2px solid {accent_color} !important; height: 5em; width: 100%;
+        font-weight: 900; letter-spacing: 5px; transition: 0.5s; font-family: 'Orbitron';
+    }}
+    div.stButton > button:hover {{ 
+        background: {accent_color} !important; color: black !important; 
+        box-shadow: 0 0 100px {accent_color}; transform: translateY(-5px);
+    }}
+    
+    /* Terminal Console */
+    .terminal-window {{
+        background: #000; border: 1px solid {primary_color}; padding: 25px;
+        box-shadow: inset 0 0 30px {primary_color}; color: {primary_color};
+        font-size: 1.1rem; line-height: 1.6;
+    }}
+    </style>
     """, unsafe_allow_html=True)
 
-apply_custom_theme()
+# ------------------------------------------------------------------------------
+# [MODULE 2: THE SECURE DATA VAULT - محرك الأرشفة السيادي]
+# ------------------------------------------------------------------------------
+class GeorgeTitanVault:
+    def __init__(self):
+        self.db_name = 'george_titan_records.db'
+        self._initialize_core_storage()
 
-# --- 3. المنطق التشغيلي (Main Logic) ---
+    def _initialize_core_storage(self):
+        with sqlite3.connect(self.db_name) as conn:
+            # جدول العمليات (Strikes)
+            conn.execute('''CREATE TABLE IF NOT EXISTS strikes 
+                            (id INTEGER PRIMARY KEY AUTOINCREMENT, target TEXT, carrier TEXT, 
+                             country TEXT, location TEXT, timestamp TEXT, hash_id TEXT)''')
+            # جدول الإحصائيات (Metrics)
+            conn.execute('''CREATE TABLE IF NOT EXISTS metrics 
+                            (date TEXT PRIMARY KEY, total_strikes INTEGER)''')
+
+    def log_operation(self, t, c, cn, l):
+        hash_id = hashlib.sha256(f"{t}{time.time()}".encode()).hexdigest()[:12].upper()
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with sqlite3.connect(self.db_name) as conn:
+            conn.execute("INSERT INTO strikes (target, carrier, country, location, timestamp, hash_id) VALUES (?,?,?,?,?,?)",
+                         (t, c, cn, l, now, hash_id))
+        return hash_id
+
+# ------------------------------------------------------------------------------
+# [MODULE 3: GLOBAL INTEL ANALYZER - محرك الاستخبارات العالمي]
+# ------------------------------------------------------------------------------
+class IntelTitanCore:
+    def __init__(self):
+        self.api_key = "cb11d33f6a3d4cf29dbaf96be43ae069" # مفتاحك الخاص
+
+    def sanitize_identifier(self, p):
+        # ذكاء اصطناعي لتنقية الرقم وتنسيقه دولياً
+        p = re.sub(r'[^\d]', '', p)
+        if p.startswith('01') and len(p) == 11: return '20' + p
+        return p
+
+    def execute_deep_scan(self, identifier):
+        target = self.sanitize_identifier(identifier)
+        url = f"https://phoneintelligence.abstractapi.com/v1/?api_key={self.api_key}&phone={target}"
+        try:
+            response = requests.get(url, timeout=20)
+            if response.status_code == 200:
+                data = response.json()
+                return data if data.get('valid') else None
+            return None
+        except Exception: return None
+
+# ------------------------------------------------------------------------------
+# [MODULE 4: DOSSIER GENERATOR - محرك التقارير العسكرية]
+# ------------------------------------------------------------------------------
+def generate_george_dossier(data, target, hash_id):
+    dossier = f"""
+######################################################################
+#              TOP SECRET - GEORGE SUPREMACY DOSSIER                 #
+######################################################################
+# OPERATOR ID   : GEORGE FAHMY (SUPREME COMMANDER)                   #
+# OPERATION ID  : {hash_id}                                          #
+# TARGET ID     : {target}                                           #
+# TIMESTAMP     : {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}      #
+######################################################################
+
+[+] CARRIER INTELLIGENCE:
+-------------------------
+> PROVIDER     : {data.get('carrier', 'UNKNOWN')}
+> LINE TYPE    : {data.get('type', 'SECURE')}
+> VALIDATION   : VERIFIED BY GEORGE SYSTEMS
+
+[+] GEOGRAPHIC LOCALIZATION:
+----------------------------
+> COUNTRY      : {data.get('country', {}).get('name', 'GLOBAL')}
+> COORDINATES  : {data.get('location', 'ENCRYPTED')}
+> TIMEZONE     : {data.get('timezones', ['UTC'])[0]}
+
+[+] SECURITY ASSESSMENT:
+------------------------
+> STATUS       : FULLY COMPROMISED
+> ACCESS LEVEL : GOD MODE
+> TRACE        : ALPHA-OMNIBUS-1000
+
+######################################################################
+#      CONFIDENTIAL PROPERTY OF THE GEORGE CYBER EMPIRE              #
+######################################################################
+    """
+    return dossier
+
+# ------------------------------------------------------------------------------
+# [MODULE 5: THE COMMAND CENTER - مركز القيادة والتحكم]
+# ------------------------------------------------------------------------------
 def main():
-    # تهيئة الكائنات
-    vault = JosephVault()
-    analyzer = IntelAnalyzer()
+    if 'strike_success' not in st.session_state: st.session_state['strike_success'] = False
+    
+    apply_titan_theme(st.session_state['strike_success'])
+    vault = GeorgeTitanVault()
+    titan_intel = IntelTitanCore()
 
-    # الهيدر الرئيسي
-    st.markdown("<h1 style='text-align: center;'>🛡️ SOVEREIGN OMEGA COMMAND v10</h1>", unsafe_allow_html=True)
-    st.markdown(f"<p style='text-align: center;'>SYSTEM STATUS: <span class='status-online'>● OPERATIONAL</span> | OPERATOR: JOSEPH FAHMY</p>", unsafe_allow_html=True)
-    st.write("---")
+    st.markdown("<h1 class='titan-header'>GEORGE TITAN OS</h1>", unsafe_allow_html=True)
+    st.sidebar.markdown(f"<h2 style='color:#D4AF37; text-align:center;'>KING GEORGE CONTROL</h2>", unsafe_allow_html=True)
+    
+    module = st.sidebar.radio("SELECT MISSION MODULE", ["🚀 STRIKE OPS", "📂 THE VAULT", "📊 GLOBAL ANALYTICS", "⚙️ SYSTEM RESET"])
 
-    # --- القائمة الجانبية (Sidebar) ---
-    with st.sidebar:
-        st.header("⚙️ CONTROL PANEL")
-        mode = st.selectbox("Select Module", ["Target Recon", "Secure Vault", "Network Logs", "System Settings"])
-        st.write("---")
-        st.info("AES-256 GCM Encryption Active")
-        if st.button("🔴 EMERGENCY SHUTDOWN"):
-            st.session_state.clear()
-            st.rerun()
-
-    # --- التبويب الأول: سحب وتحليل البيانات ---
-    if mode == "Target Recon":
-        col1, col2 = st.columns([1, 1.5])
-
-        with col1:
-            st.markdown("<div class='intel-card'>", unsafe_allow_html=True)
-            st.subheader("🎯 Data Acquisition")
-            target_id = st.text_input("Target Identifier (e.g. 201xxxxxxxxx)")
-            data_payload = st.text_area("Source Data Stream", height=150)
+    if module == "🚀 STRIKE OPS":
+        c1, c2 = st.columns([1, 1.5])
+        with c1:
+            st.subheader("🎯 Target Acquisition")
+            raw_target = st.text_input("ENTER IDENTIFIER")
             
-            if st.button("LAUNCH DEEP PROBE"):
-                if target_id and data_payload:
-                    with st.status("⚔️ Processing Intelligence...", expanded=True) as status:
-                        # تحليل البيانات
-                        findings = analyzer.classify(data_payload)
-                        # حفظ مشفر في الخزنة
-                        vault.secure_save(f"TARGET_{target_id}", data_payload)
-                        
-                        time.sleep(1)
-                        st.session_state['active_recon'] = {
-                            "id": target_id,
-                            "findings": findings,
-                            "time": datetime.now().strftime("%H:%M:%S")
-                        }
-                        status.update(label="✅ Target Vaulted Successfully", state="complete")
-                else:
-                    st.warning("⚠️ Input Required: Please provide Target ID and Data.")
-            st.markdown("</div>", unsafe_allow_html=True)
+            if st.button("LAUNCH SUPREME ANNIHILATION"):
+                res = titan_intel.execute_deep_scan(raw_target)
+                if res:
+                    st.session_state['strike_success'] = True
+                    st.session_state['current_res'] = res
+                    st.session_state['current_target'] = raw_target
+                    hid = vault.log_operation(raw_target, res.get('carrier'), res.get('country', {}).get('name'), res.get('location'))
+                    st.session_state['current_hash'] = hid
+                    
+                    # صوت السيادة الملكية
+                    st.markdown('<audio autoplay><source src="https://translate.google.com/translate_tts?ie=UTF-8&q=%D8%AA%D9%85%20%D8%A7%D9%84%D8%A7%D8%AE%D8%AA%D8%B1%D8%A7%D9%82%20%D8%A8%D9%86%D8%AC%D8%A7%D8%AD%20%D8%B9%D9%86%20%D8%B7%D8%B1%D9%8A%D9%82%20%D8%A7%D9%84%D9%85%D9%84%D9%83%20GEORGE&tl=ar&client=tw-ob"></audio>', unsafe_allow_html=True)
+                    st.rerun()
+                else: st.error("ACCESS DENIED: SHIELD ACTIVE")
 
-        with col2:
-            st.subheader("🖥️ Intelligence Monitor")
-            if 'active_recon' in st.session_state:
-                recon = st.session_state['active_recon']
-                st.code(f">>> RECON_ID: {recon['id']}\n>>> TIMESTAMP: {recon['time']}\n>>> VECTOR_ANALYSIS: {recon['findings']}", language="python")
-                
-                # عرض مؤشرات المخاطر
-                if recon['findings']:
-                    st.error(f"⚠️ Critical Patterns Detected: {', '.join(recon['findings'])}")
-                else:
-                    st.success("✅ No Malicious Patterns Found in Stream.")
-            else:
-                st.info("Waiting for data stream execution...")
+        with c2:
+            if 'current_res' in st.session_state:
+                st.markdown('<div class="terminal-window">', unsafe_allow_html=True)
+                dos = generate_george_dossier(st.session_state['current_res'], st.session_state['current_target'], st.session_state['current_hash'])
+                st.code(dos, language="python")
+                st.markdown('</div>', unsafe_allow_html=True)
+                st.download_button("📥 DOWNLOAD TITAN DOSSIER", dos, file_name=f"GEORGE_TITAN_{st.session_state['current_hash']}.txt")
 
-    # --- التبويب الثاني: الخزنة المشفرة ---
-    elif mode == "Secure Vault":
-        st.subheader("📂 Encrypted Shadow Vault")
-        master_key = st.text_input("Enter Master Decryption Key", type="password")
-        
-        if master_key == "JOSEPH_FAHMY_2026":
-            st.success("🔓 Access Granted to Encrypted Records")
-            # محاكاة عرض البيانات (يمكنك ربطها بـ vault.get_all())
-            try:
-                # هذا الجزء يفترض وجود ميزة عرض في الكلاس vault.py
-                st.write("Fetching latest 10 encrypted payloads...")
-                # داتا تجريبية للتوضيح
-                st.table([{"Tag": "TARGET_2015", "Status": "Encrypted", "TS": "2026-03-22"}])
-            except:
-                st.warning("Database connection active. Ready for query.")
-        elif master_key:
-            st.error("🚫 Access Denied: Invalid Master Key.")
+    elif module == "📂 THE VAULT":
+        st.header("📂 Permanent Strike Logs")
+        with sqlite3.connect('george_titan_records.db') as conn:
+            df = pd.read_sql_query("SELECT * FROM strikes ORDER BY id DESC", conn)
+            st.dataframe(df, use_container_width=True)
 
-    # --- التبويب الثالث: سجلات الشبكة ---
-    elif mode == "Network Logs":
-        st.subheader("🌐 Network Activity Logs")
-        chart_data = pd.DataFrame({"Packets": [10, 25, 15, 40, 30], "Time": ["21:00", "21:15", "21:30", "21:45", "22:00"]})
-        st.line_chart(chart_data.set_index("Time"))
-        st.write("Monitoring Traffic on eth0...")
+    elif module == "📊 GLOBAL ANALYTICS":
+        st.header("📊 Intelligence Statistics")
+        with sqlite3.connect('george_titan_records.db') as conn:
+            df = pd.read_sql_query("SELECT carrier, country FROM strikes", conn)
+            if not df.empty:
+                f1 = px.pie(df, names='carrier', hole=0.5, title="Dominance by Carrier")
+                f1.update_layout(paper_bgcolor="black", font_color="#D4AF37")
+                st.plotly_chart(f1)
+            else: st.info("No data in vault.")
 
-# تشغيل التطبيق
+    elif module == "⚙️ SYSTEM RESET":
+        if st.button("PURGE ALL SYSTEMS"):
+            st.session_state['strike_success'] = False
+            st.success("SYSTEM NEUTRALIZED")
+
 if __name__ == "__main__":
     main()
