@@ -1,7 +1,8 @@
 # ==============================================================================
-# 👑 PROJECT: JOSEPH TITAN OMNI V25 - THE SOVEREIGN
-# 👑 ARCHITECT: JOSEPH FAHMY (FULL-STACK AI ENGINEER)
-# 👑 FEATURES: PHONE OSINT | IP TRACKER | WEB RECON | CYBER VAULT (Encryption + Stegano)
+# 👑 PROJECT: JOSEPH TITAN OMNI V26 – THE SOVEREIGN (FINAL)
+# 👑 ARCHITECT: JOSEPH FAHMY
+# 👑 MODULES: Phone OSINT | IP Tracker | Web Recon | AI Analysis | Cyber Vault
+#            | User Auth | SQLite Logs | Telegram Alerts
 # ==============================================================================
 
 import streamlit as st
@@ -17,15 +18,28 @@ from bs4 import BeautifulSoup
 from cryptography.fernet import Fernet
 from stegano import lsb
 import os
+import json
 
 # -----------------------------
-# 🛡️ CONFIGURATION (Secrets)
+# 🛡️ SECURE CONFIGURATION (Secrets)
 # -----------------------------
 NUM_KEY = st.secrets.get("NUMVERIFY_KEY", "")
 GEMINI_KEY = st.secrets.get("GEMINI_API_KEY", "")
+TELEGRAM_TOKEN = st.secrets.get("TELEGRAM_TOKEN", "")
+TELEGRAM_CHAT_ID = st.secrets.get("TELEGRAM_CHAT_ID", "")
 
 # -----------------------------
-# 🏗️ MODULE: DATABASE & AUTH
+# 📡 TELEGRAM NOTIFIER (Optional)
+# -----------------------------
+def send_telegram(msg):
+    if TELEGRAM_TOKEN and TELEGRAM_CHAT_ID:
+        url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+        payload = {"chat_id": TELEGRAM_CHAT_ID, "text": f"🔱 **TITAN OMNI**\n{msg}", "parse_mode": "Markdown"}
+        try: requests.post(url, json=payload, timeout=5)
+        except: pass
+
+# -----------------------------
+# 🏗️ DATABASE & AUTH
 # -----------------------------
 class TitanDB:
     def __init__(self):
@@ -34,291 +48,304 @@ class TitanDB:
         self._setup()
 
     def _setup(self):
-        self.c.execute('CREATE TABLE IF NOT EXISTS users (username TEXT UNIQUE, password TEXT)')
-        self.c.execute('CREATE TABLE IF NOT EXISTS logs (op TEXT, target TEXT, info TEXT, time TEXT)')
+        self.c.execute('''CREATE TABLE IF NOT EXISTS users (
+            username TEXT PRIMARY KEY, password TEXT, role TEXT, created TEXT)''')
+        self.c.execute('''CREATE TABLE IF NOT EXISTS logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, operator TEXT, target TEXT, info TEXT, time TEXT)''')
         self.conn.commit()
 
     def verify_user(self, u, p):
         hp = hashlib.sha256(p.encode()).hexdigest()
-        self.c.execute("SELECT * FROM users WHERE username=? AND password=?", (u, hp))
-        return self.c.fetchone()
+        self.c.execute("SELECT role FROM users WHERE username=? AND password=?", (u, hp))
+        row = self.c.fetchone()
+        return row[0] if row else None
 
-    def log_operation(self, op, target, info):
-        self.c.execute("INSERT INTO logs (op, target, info, time) VALUES (?,?,?,?)",
+    def add_user(self, u, p, role="OPERATOR"):
+        hp = hashlib.sha256(p.encode()).hexdigest()
+        try:
+            self.c.execute("INSERT INTO users (username, password, role, created) VALUES (?,?,?,?)",
+                           (u, hp, role, datetime.now().strftime("%Y-%m-%d")))
+            self.conn.commit()
+            return True
+        except: return False
+
+    def log(self, op, target, info=""):
+        self.c.execute("INSERT INTO logs (operator, target, info, time) VALUES (?,?,?,?)",
                        (op, target, info, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
         self.conn.commit()
+
+    def get_logs(self):
+        return pd.read_sql_query("SELECT * FROM logs ORDER BY id DESC", self.conn)
 
 db = TitanDB()
 
 # -----------------------------
-# 🔐 MODULE: CRYPTOGRAPHY & STEGANOGRAPHY
+# 🔐 CRYPTOGRAPHY & STEGANOGRAPHY
 # -----------------------------
 class TitanSecure:
     @staticmethod
-    def generate_key_from_pwd(password):
-        """توليد مفتاح Fernet من كلمة مرور"""
-        hasher = hashlib.sha256(password.encode()).digest()
-        return base64.urlsafe_b64encode(hasher)
+    def derive_key(pwd):
+        h = hashlib.sha256(pwd.encode()).digest()
+        return base64.urlsafe_b64encode(h)
 
     @staticmethod
-    def encrypt_msg(text, pwd):
-        """تشفير نص باستخدام كلمة مرور"""
+    def encrypt(text, pwd):
         try:
-            key = TitanSecure.generate_key_from_pwd(pwd)
-            f = Fernet(key)
+            f = Fernet(TitanSecure.derive_key(pwd))
             return f.encrypt(text.encode()).decode()
-        except Exception as e:
-            return f"❌ Encryption Error: {str(e)}"
+        except: return "❌ Encryption Error"
 
     @staticmethod
-    def decrypt_msg(token, pwd):
-        """فك تشفير نص باستخدام كلمة مرور"""
+    def decrypt(token, pwd):
         try:
-            key = TitanSecure.generate_key_from_pwd(pwd)
-            f = Fernet(key)
+            f = Fernet(TitanSecure.derive_key(pwd))
             return f.decrypt(token.encode()).decode()
-        except:
-            return "❌ Wrong Key or Corrupted Data"
+        except: return "❌ Wrong Key or Data Corrupted"
 
     @staticmethod
-    def hide_in_image(image_bytes, message, output_path="secret.png"):
-        """إخفاء رسالة داخل صورة (PNG فقط)"""
+    def hide_in_image(img_bytes, msg, out_path="secret.png"):
         try:
-            # حفظ الصورة مؤقتاً
-            temp_path = "temp_host.png"
-            with open(temp_path, "wb") as f:
-                f.write(image_bytes)
-            # إخفاء الرسالة
-            secret = lsb.hide(temp_path, message)
-            secret.save(output_path)
-            os.remove(temp_path)
-            return True, output_path
-        except Exception as e:
-            return False, str(e)
+            temp = "temp_host.png"
+            with open(temp, "wb") as f: f.write(img_bytes)
+            secret = lsb.hide(temp, msg)
+            secret.save(out_path)
+            os.remove(temp)
+            return True, out_path
+        except Exception as e: return False, str(e)
 
     @staticmethod
-    def reveal_from_image(image_path):
-        """استخراج الرسالة المخفية من صورة"""
-        try:
-            return lsb.reveal(image_path)
-        except Exception as e:
-            return f"❌ Reveal Failed: {str(e)}"
+    def reveal_from_image(img_path):
+        try: return lsb.reveal(img_path)
+        except Exception as e: return f"❌ Reveal Failed: {e}"
 
 # -----------------------------
-# 🤖 MODULE: AI ENGINE
+# 🤖 AI ENGINE (Gemini)
 # -----------------------------
 def gemini_analyze(prompt):
-    if not GEMINI_KEY: return "⚠️ Gemini Key Missing"
+    if not GEMINI_KEY: return "⚠️ Gemini key missing."
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_KEY}"
+    payload = {"contents": [{"parts": [{"text": prompt}]}]}
     try:
-        res = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=15)
-        return res.json()["candidates"][0]["content"]["parts"][0]["text"]
-    except: return "⚠️ AI Engine Offline"
+        r = requests.post(url, json=payload, timeout=15)
+        return r.json()["candidates"][0]["content"]["parts"][0]["text"]
+    except: return "⚠️ AI engine offline."
 
 # -----------------------------
-# 📡 MODULE: INTELLIGENCE CORES
+# 📡 OSINT MODULES
 # -----------------------------
 class IntelCore:
     @staticmethod
-    def scan_phone(phone):
+    def phone_scan(phone):
         clean = phone.strip().replace(" ", "").replace("+", "")
         if clean.startswith('0'): clean = '20' + clean[1:]
+        if len(clean) == 10: clean = '20' + clean
         url = f"http://apilayer.net/api/validate?access_key={NUM_KEY}&number={clean}"
-        try:
-            return requests.get(url, timeout=10).json()
-        except:
-            return {"error": "Phone API Timeout"}
+        try: return requests.get(url, timeout=10).json()
+        except: return {"error": "API timeout"}
 
     @staticmethod
-    def scan_ip(ip):
-        try:
-            return requests.get(f"http://ip-api.com/json/{ip}", timeout=10).json()
-        except:
-            return {"error": "IP API Timeout"}
+    def ip_scan(ip):
+        try: return requests.get(f"http://ip-api.com/json/{ip}", timeout=10).json()
+        except: return {"error": "IP API timeout"}
 
     @staticmethod
     def web_recon(url):
-        if not url.startswith('http'):
-            url = 'https://' + url
+        if not url.startswith("http"): url = "https://" + url
         try:
-            res = requests.get(url, timeout=10)
-            soup = BeautifulSoup(res.text, 'html.parser')
+            r = requests.get(url, timeout=10)
+            soup = BeautifulSoup(r.text, "html.parser")
             return {
+                "Status": r.status_code,
                 "Title": soup.title.string if soup.title else "N/A",
-                "Server": res.headers.get('Server', 'Hidden'),
-                "Links": len(soup.find_all('a')),
-                "Status": res.status_code
+                "Server": r.headers.get("Server", "Hidden"),
+                "Links": len(soup.find_all("a")),
+                "MetaDesc": (soup.find("meta", attrs={"name":"description"}) or {}).get("content", "N/A")
             }, soup.get_text()[:1000]
-        except:
-            return {"error": "Website unreachable"}, ""
+        except: return {"error": "Unreachable"}, ""
 
 # -----------------------------
-# 🎨 UI: ROYAL INTERFACE (مع تحديث القائمة)
+# 🎨 UI: ROYAL THEME & LAYOUT
 # -----------------------------
-st.set_page_config(page_title="JOSEPH TITAN V25", layout="wide")
-st.markdown("<h1 style='text-align:center; color:#D4AF37; font-family:Orbitron;'>🔱 JOSEPH TITAN OMNI V25</h1>", unsafe_allow_html=True)
+st.set_page_config(page_title="JOSEPH TITAN OMNI", layout="wide")
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@900&family=JetBrains+Mono&display=swap');
+    .stApp { background-color: #050505; color: #D4AF37; font-family: 'JetBrains Mono', monospace; }
+    .main-title { font-family: 'Orbitron', sans-serif; font-size: 4rem; text-align: center;
+                  background: linear-gradient(180deg, #D4AF37, #FFF); -webkit-background-clip: text;
+                  -webkit-text-fill-color: transparent; filter: drop-shadow(0 0 30px #D4AF37); }
+    div.stButton > button { border: 2px solid #D4AF37 !important; background: transparent !important;
+                            color: #D4AF37 !important; font-weight: bold; width: 100%; height: 3.5em; }
+    div.stButton > button:hover { background: #D4AF37 !important; color: black !important;
+                                  box-shadow: 0 0 30px #D4AF37; }
+    .stTextInput > div > div > input { background-color: #111; color: #D4AF37; border: 1px solid #D4AF37; }
+</style>
+""", unsafe_allow_html=True)
 
-if "auth" not in st.session_state:
-    st.session_state.auth = False
+# -----------------------------
+# 🧠 MAIN APPLICATION
+# -----------------------------
+def main():
+    if "auth" not in st.session_state:
+        st.session_state.auth = None
 
-if not st.session_state.auth:
-    st.markdown("<h3 style='text-align:center;'>⚜️ Secure Authentication</h3>", unsafe_allow_html=True)
-    u = st.text_input("Operator ID")
-    p = st.text_input("Access Key", type="password")
-    if st.button("AUTHENTICATE"):
-        # يمكنك تغيير كلمة السر أو ربطها بقاعدة البيانات
-        if u.lower() == "joseph" and p == "titan2026":
-            st.session_state.auth = True
-            st.rerun()
-        else:
-            st.error("Access Denied")
-else:
-    # القائمة الجانبية مع إضافة Cyber Vault
-    module = st.sidebar.radio("CHOOSE MISSION", 
-                              ["📱 Phone Scanner", "🌐 IP Tracker", "🔍 Web Recon", "🔐 Cyber Vault", "🚪 Logout"])
+    # ---- AUTHENTICATION SCREEN ----
+    if not st.session_state.auth:
+        st.markdown("<h1 class='main-title'>JOSEPH TITAN OMNI</h1>", unsafe_allow_html=True)
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            tab1, tab2 = st.tabs(["🔐 Login", "🆕 Register"])
+            with tab1:
+                u = st.text_input("Username")
+                p = st.text_input("Password", type="password")
+                if st.button("Login"):
+                    role = db.verify_user(u, p)
+                    if role:
+                        st.session_state.auth = {"user": u, "role": role}
+                        send_telegram(f"🟢 **LOGIN**\nUser: {u}")
+                        st.rerun()
+                    else: st.error("Invalid credentials")
+            with tab2:
+                nu = st.text_input("New Username")
+                np = st.text_input("New Password", type="password")
+                if st.button("Register"):
+                    if nu and np:
+                        if db.add_user(nu, np):
+                            st.success("Account created. Please login.")
+                        else: st.error("Username already exists")
+                    else: st.warning("Fill all fields")
+        return
 
-    # ========================
-    # 1. PHONE SCANNER
-    # ========================
+    # ---- MAIN DASHBOARD ----
+    st.sidebar.markdown(f"### 🛡️ Operator: **{st.session_state.auth['user']}**")
+    st.sidebar.markdown(f"Role: {st.session_state.auth['role']}")
+    st.sidebar.divider()
+
+    module = st.sidebar.radio("COMMAND MODULE",
+        ["📱 Phone Scanner", "🌐 IP Tracker", "🔍 Web Recon", "🔐 Cyber Vault", "📊 Logs", "🚪 Logout"])
+
+    # ---------- 1. PHONE SCANNER ----------
     if module == "📱 Phone Scanner":
-        st.subheader("📱 Advanced Phone Intelligence")
+        st.subheader("📱 Phone Intelligence")
         target = st.text_input("Target Number", placeholder="e.g. 01229166011")
         if st.button("EXECUTE"):
             if target:
-                with st.spinner("Analyzing..."):
-                    data = IntelCore.scan_phone(target)
+                with st.spinner("Decoding network signals..."):
+                    data = IntelCore.phone_scan(target)
                     if data.get("valid"):
-                        st.success("Target Synchronized ✅")
-                        st.json(data)
-                        # تسجيل العملية
-                        db.log_operation(st.session_state.get('user', 'Joseph'), target, data.get('carrier', 'Unknown'))
+                        st.success("Target synchronized ✅")
+                        col1, col2, col3 = st.columns(3)
+                        col1.metric("Carrier", data.get("carrier"))
+                        col2.metric("Country", data.get("country_name"))
+                        col3.metric("Line Type", data.get("line_type"))
+                        with st.expander("Full Metadata"):
+                            st.json(data)
+                        # AI Analysis
                         if GEMINI_KEY:
-                            st.info(gemini_analyze(f"Analyze this phone data: {data}"))
+                            prompt = f"OSINT analysis of phone number {target}: {data}"
+                            st.info(gemini_analyze(prompt))
+                        db.log(st.session_state.auth['user'], target, data.get("carrier", "Unknown"))
+                        send_telegram(f"📞 **Phone Scan**\nUser: {st.session_state.auth['user']}\nTarget: {target}\nCarrier: {data.get('carrier')}")
                     else:
-                        st.error("Target identification failed")
-            else:
-                st.warning("Enter a target number")
+                        st.error(data.get("error", {}).get("info", "Invalid number"))
+            else: st.warning("Enter target number")
 
-    # ========================
-    # 2. IP TRACKER
-    # ========================
+    # ---------- 2. IP TRACKER ----------
     elif module == "🌐 IP Tracker":
-        st.subheader("🌍 Global IP Node Mapping")
-        ip_target = st.text_input("Target IP", placeholder="e.g. 8.8.8.8")
+        st.subheader("🌐 IP Geolocation")
+        ip_target = st.text_input("IP Address")
         if st.button("TRACE"):
             if ip_target:
-                with st.spinner("Locating node..."):
-                    ip_data = IntelCore.scan_ip(ip_target)
+                with st.spinner("Satellite triangulation..."):
+                    ip_data = IntelCore.ip_scan(ip_target)
                     if ip_data.get("status") == "success":
-                        st.success(f"Located: {ip_data['city']}, {ip_data['country']}")
+                        st.success(f"Node: {ip_data['city']}, {ip_data['country']}")
                         lat, lon = ip_data['lat'], ip_data['lon']
                         m = folium.Map(location=[lat, lon], zoom_start=12, tiles="CartoDB dark_matter")
-                        folium.Marker([lat, lon], popup=f"IP: {ip_target}").add_to(m)
+                        folium.Marker([lat, lon], popup=ip_target).add_to(m)
                         st_folium(m, width="100%", height=400)
                         st.write(f"**ISP:** {ip_data.get('isp')} | **Org:** {ip_data.get('org')}")
-                        db.log_operation(st.session_state.get('user', 'Joseph'), ip_target, ip_data.get('isp', 'Unknown'))
-                    else:
-                        st.error("Node not found")
-            else:
-                st.warning("Enter an IP address")
+                        db.log(st.session_state.auth['user'], ip_target, ip_data.get('isp', 'Unknown'))
+                        send_telegram(f"🌍 **IP Trace**\nUser: {st.session_state.auth['user']}\nIP: {ip_target}\nLocation: {ip_data['city']}")
+                    else: st.error("Node not found")
+            else: st.warning("Enter IP address")
 
-    # ========================
-    # 3. WEB RECON
-    # ========================
+    # ---------- 3. WEB RECON ----------
     elif module == "🔍 Web Recon":
-        st.subheader("🔍 Website Intelligence")
-        url_target = st.text_input("Target URL", placeholder="https://example.com")
-        if st.button("START RECON"):
+        st.subheader("🔍 Website Reconnaissance")
+        url_target = st.text_input("Target URL")
+        if st.button("SCAN"):
             if url_target:
-                with st.spinner("Scanning..."):
-                    recon, text = IntelCore.web_recon(url_target)
+                with st.spinner("Harvesting metadata..."):
+                    recon, raw = IntelCore.web_recon(url_target)
                     if "error" not in recon:
-                        st.write("### 📋 Recon Results")
                         st.json(recon)
                         if GEMINI_KEY:
-                            st.info(gemini_analyze(f"Summarize this website: {recon}\nContent snippet: {text[:500]}"))
-                        db.log_operation(st.session_state.get('user', 'Joseph'), url_target, recon.get('Title', 'Unknown'))
-                    else:
-                        st.error(recon["error"])
-            else:
-                st.warning("Enter a URL")
+                            prompt = f"Website intelligence: {recon}\nContent snippet: {raw[:500]}"
+                            st.info(gemini_analyze(prompt))
+                        db.log(st.session_state.auth['user'], url_target, recon.get('Title', 'Unknown'))
+                        send_telegram(f"🌐 **Web Recon**\nUser: {st.session_state.auth['user']}\nTarget: {url_target}")
+                    else: st.error(recon["error"])
+            else: st.warning("Enter URL")
 
-    # ========================
-    # 4. CYBER VAULT (جديد)
-    # ========================
+    # ---------- 4. CYBER VAULT ----------
     elif module == "🔐 Cyber Vault":
-        st.subheader("🔐 Military-Grade Encryption & Steganography")
+        st.subheader("🔐 Military‑Grade Cryptography")
         tab1, tab2 = st.tabs(["💬 Text Cipher", "🖼️ Image Steganography"])
-        
         with tab1:
-            col1, col2 = st.columns(2)
-            with col1:
-                msg_input = st.text_area("Enter Message or Ciphertext", height=150)
-                key_input = st.text_input("Secret Key", type="password")
-                if st.button("ENCRYPT", key="enc"):
-                    if msg_input and key_input:
-                        encrypted = TitanSecure.encrypt_msg(msg_input, key_input)
-                        st.code(encrypted)
-                    else:
-                        st.warning("Message and Key required")
-                if st.button("DECRYPT", key="dec"):
-                    if msg_input and key_input:
-                        decrypted = TitanSecure.decrypt_msg(msg_input, key_input)
-                        st.info(decrypted)
-                    else:
-                        st.warning("Ciphertext and Key required")
-            with col2:
-                st.markdown("**📌 Example**")
-                st.code("""
-# Encrypt:
-"secret message" + key -> token
-# Decrypt:
-token + same key -> original
-                """)
-
+            msg = st.text_area("Message / Ciphertext")
+            pwd = st.text_input("Secret Key", type="password")
+            c1, c2 = st.columns(2)
+            if c1.button("ENCRYPT"):
+                if msg and pwd:
+                    st.code(TitanSecure.encrypt(msg, pwd))
+                else: st.warning("Message and key required")
+            if c2.button("DECRYPT"):
+                if msg and pwd:
+                    st.info(TitanSecure.decrypt(msg, pwd))
+                else: st.warning("Ciphertext and key required")
         with tab2:
-            st.write("📸 Hide a secret message inside a PNG image")
-            uploaded_file = st.file_uploader("Upload Host Image (PNG only)", type=['png'])
-            secret_msg = st.text_area("Message to Hide", placeholder="Your confidential text...")
-            
-            if st.button("🕵️ Hide & Download"):
-                if uploaded_file and secret_msg:
-                    with st.spinner("Embedding secret..."):
-                        img_bytes = uploaded_file.getvalue()
-                        success, result = TitanSecure.hide_in_image(img_bytes, secret_msg, "secret_output.png")
-                        if success:
-                            st.success("Message hidden successfully!")
-                            with open("secret_output.png", "rb") as f:
-                                st.download_button("Download Secret Image", f, "secret.png")
-                        else:
-                            st.error(f"Error: {result}")
-                else:
-                    st.warning("Please provide an image and a message.")
-            
+            st.write("Hide a secret message in a PNG image")
+            img_file = st.file_uploader("Host Image (PNG)", type=['png'])
+            secret = st.text_area("Message to hide")
+            if st.button("Hide & Download"):
+                if img_file and secret:
+                    ok, out = TitanSecure.hide_in_image(img_file.getvalue(), secret)
+                    if ok:
+                        with open(out, "rb") as f:
+                            st.download_button("Download Secret Image", f, "secret.png")
+                    else: st.error(out)
+                else: st.warning("Provide image and message")
             st.divider()
-            st.write("🔍 Extract hidden message from an image")
-            reveal_file = st.file_uploader("Upload Image with Hidden Message", type=['png'], key="reveal")
-            if st.button("Reveal Message"):
+            st.write("Extract hidden message from an image")
+            reveal_file = st.file_uploader("Image with Hidden Message", type=['png'], key="reveal")
+            if st.button("Reveal"):
                 if reveal_file:
-                    with st.spinner("Extracting..."):
-                        temp_path = "temp_reveal.png"
-                        with open(temp_path, "wb") as f:
-                            f.write(reveal_file.getvalue())
-                        message = TitanSecure.reveal_from_image(temp_path)
-                        os.remove(temp_path)
-                        st.info(f"**Hidden Message:** {message}")
-                else:
-                    st.warning("Upload an image")
+                    tmp = "temp_reveal.png"
+                    with open(tmp, "wb") as f: f.write(reveal_file.getvalue())
+                    msg = TitanSecure.reveal_from_image(tmp)
+                    os.remove(tmp)
+                    st.info(f"**Hidden message:** {msg}")
+                else: st.warning("Upload image")
 
-    # ========================
-    # 5. LOGOUT
-    # ========================
+    # ---------- 5. LOGS ----------
+    elif module == "📊 Logs":
+        st.subheader("📊 Operation Logs")
+        logs = db.get_logs()
+        if not logs.empty:
+            st.dataframe(logs, use_container_width=True)
+            csv = logs.to_csv(index=False).encode('utf-8')
+            st.download_button("Export CSV", csv, "titan_logs.csv")
+        else: st.info("No logs yet.")
+
+    # ---------- 6. LOGOUT ----------
     elif module == "🚪 Logout":
-        st.session_state.auth = False
+        send_telegram(f"🔴 **LOGOUT**\nUser: {st.session_state.auth['user']}")
+        st.session_state.auth = None
         st.rerun()
 
-    # شريط معلومات في الـ sidebar
-    st.sidebar.markdown("---")
-    st.sidebar.write(f"**Operator:** Joseph Fahmy")
-    st.sidebar.write(f"**Session:** Active")
-    st.sidebar.caption("Powered by Joseph Titan")
+    st.sidebar.divider()
+    st.sidebar.caption("JOSEPH TITAN OMNI V26")
+
+if __name__ == "__main__":
+    main()
