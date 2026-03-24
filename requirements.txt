@@ -6,3 +6,4 @@ pandas
 beautifulsoup4
 cryptography
 stegano
+opencv-python-headless   # required by stegano
