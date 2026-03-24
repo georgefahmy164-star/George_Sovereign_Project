@@ -1,221 +1,208 @@
 # ==============================================================================
-# 👑 PROJECT: GEORGE THE CONQUEROR - THE TITAN EDITION (V.MAX)
-# 👑 ARCHITECT: GEORGE FAHMY (MASTER PROGRAMMER)
-# 👑 COMPLEXITY: ENTERPRISE-GRADE LOGIC (SIMULATING 2000+ FUNCTIONAL LINES)
+# 👑 PROJECT: GEORGE TITAN - THE SUPREME ARCHITECT (V12.1 FULL)
+# 👑 ARCHITECT: GEORGE FAHMY (ELITE FULL-STACK OPERATOR)
+# 👑 FEATURES: ALL-IN-ONE (SECURITY, AI, NOTIFICATIONS, DATABASE, ADMIN)
 # ==============================================================================
 
 import streamlit as st
-import requests
-import pandas as pd
 import sqlite3
-import plotly.express as px
-import plotly.graph_objects as go
-import time
-import re
-import json
-import base64
+import requests
 import hashlib
-import os
+import pandas as pd
 from datetime import datetime
-from io import BytesIO
 
-# ------------------------------------------------------------------------------
-# [MODULE 1: THE IMPERIAL VISUAL ENGINE - محرك العرض الإمبراطوري]
-# ------------------------------------------------------------------------------
-def apply_titan_theme(success=False):
-    # بروتوكول الوميض الأحمر الاستخباراتي
-    bg_style = "radial-gradient(circle, #400 0%, #000 100%)" if success else "#050505"
-    primary_color = "#ff0000" if success else "#00FF41"
-    accent_color = "#D4AF37" # Gold for King George
-    
-    st.markdown(f"""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=JetBrains+Mono:wght@300;700&display=swap');
-    
-    .stApp {{ background: {bg_style}; color: {primary_color}; font-family: 'JetBrains Mono', monospace; transition: 0.8s ease; }}
-    
-    /* Title Animation */
-    .titan-header {{
-        font-family: 'Orbitron', sans-serif; font-size: 5.5rem; text-align: center;
-        background: linear-gradient(180deg, {accent_color}, #FFF, {accent_color});
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        filter: drop-shadow(0 0 40px {accent_color}); margin-bottom: 10px;
-        animation: pulse 2s infinite alternate;
-    }}
-    
-    @keyframes pulse {{ from {{ opacity: 0.8; transform: scale(1); }} to {{ opacity: 1; transform: scale(1.02); }} }}
+# -----------------------------
+# ⚙️ SECRETS & API CONFIG
+# -----------------------------
+# يتم سحب البيانات من ملف secrets.toml في Streamlit
+OPENAI_KEY = st.secrets.get("OPENAI_API_KEY", "")
+TELEGRAM_TOKEN = st.secrets.get("TELEGRAM_TOKEN", "")
+TELEGRAM_CHAT_ID = st.secrets.get("TELEGRAM_CHAT_ID", "")
+BACKEND_URL = "https://your-backend-url.onrender.com/analyze" # رابط الـ API الخاص بك
 
-    /* Cyber Buttons */
-    div.stButton > button {{
-        background: rgba(0,0,0,0.9) !important; color: {accent_color} !important; 
-        border: 2px solid {accent_color} !important; height: 5em; width: 100%;
-        font-weight: 900; letter-spacing: 5px; transition: 0.5s; font-family: 'Orbitron';
-    }}
-    div.stButton > button:hover {{ 
-        background: {accent_color} !important; color: black !important; 
-        box-shadow: 0 0 100px {accent_color}; transform: translateY(-5px);
-    }}
-    
-    /* Terminal Console */
-    .terminal-window {{
-        background: #000; border: 1px solid {primary_color}; padding: 25px;
-        box-shadow: inset 0 0 30px {primary_color}; color: {primary_color};
-        font-size: 1.1rem; line-height: 1.6;
-    }}
-    </style>
-    """, unsafe_allow_html=True)
+# -----------------------------
+# 📡 MODULE: TELEGRAM NOTIFIER
+# -----------------------------
+class TitanNotifier:
+    @staticmethod
+    def send_alert(msg):
+        url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+        payload = {
+            "chat_id": TELEGRAM_CHAT_ID,
+            "text": f"🔱 **TITAN SYSTEM ALERT**\n\n{msg}",
+            "parse_mode": "Markdown"
+        }
+        try: requests.post(url, json=payload, timeout=5)
+        except: pass
 
-# ------------------------------------------------------------------------------
-# [MODULE 2: THE SECURE DATA VAULT - محرك الأرشفة السيادي]
-# ------------------------------------------------------------------------------
-class GeorgeTitanVault:
+# -----------------------------
+# 🏗️ MODULE: DATABASE MANAGER
+# -----------------------------
+class TitanDB:
     def __init__(self):
-        self.db_name = 'george_titan_records.db'
-        self._initialize_core_storage()
+        self.conn = sqlite3.connect("titan_supreme.db", check_same_thread=False)
+        self.c = self.conn.cursor()
+        self._setup()
 
-    def _initialize_core_storage(self):
-        with sqlite3.connect(self.db_name) as conn:
-            # جدول العمليات (Strikes)
-            conn.execute('''CREATE TABLE IF NOT EXISTS strikes 
-                            (id INTEGER PRIMARY KEY AUTOINCREMENT, target TEXT, carrier TEXT, 
-                             country TEXT, location TEXT, timestamp TEXT, hash_id TEXT)''')
-            # جدول الإحصائيات (Metrics)
-            conn.execute('''CREATE TABLE IF NOT EXISTS metrics 
-                            (date TEXT PRIMARY KEY, total_strikes INTEGER)''')
+    def _setup(self):
+        self.c.execute('''CREATE TABLE IF NOT EXISTS users 
+            (id INTEGER PRIMARY KEY, username TEXT UNIQUE, password TEXT, role TEXT, status TEXT)''')
+        self.c.execute('''CREATE TABLE IF NOT EXISTS logs 
+            (operator TEXT, target TEXT, carrier TEXT, time TEXT)''')
+        self.conn.commit()
 
-    def log_operation(self, t, c, cn, l):
-        hash_id = hashlib.sha256(f"{t}{time.time()}".encode()).hexdigest()[:12].upper()
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        with sqlite3.connect(self.db_name) as conn:
-            conn.execute("INSERT INTO strikes (target, carrier, country, location, timestamp, hash_id) VALUES (?,?,?,?,?,?)",
-                         (t, c, cn, l, now, hash_id))
-        return hash_id
+db = TitanDB()
 
-# ------------------------------------------------------------------------------
-# [MODULE 3: GLOBAL INTEL ANALYZER - محرك الاستخبارات العالمي]
-# ------------------------------------------------------------------------------
-class IntelTitanCore:
-    def __init__(self):
-        self.api_key = "cb11d33f6a3d4cf29dbaf96be43ae069" # مفتاحك الخاص
+# -----------------------------
+# 🧠 MODULE: AI STRATEGY CORE
+# -----------------------------
+def get_ai_insight(data):
+    if not OPENAI_KEY: return "⚠️ OpenAI Key missing."
+    headers = {"Authorization": f"Bearer {OPENAI_KEY}", "Content-Type": "application/json"}
+    payload = {
+        "model": "gpt-4o-mini",
+        "messages": [
+            {"role": "system", "content": "You are a Senior Cyber Intel Analyst for GEORGE TITAN system."},
+            {"role": "user", "content": f"Analyze this packet and provide strategic insights: {data}"}
+        ]
+    }
+    try:
+        res = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload, timeout=10)
+        return res.json()["choices"][0]["message"]["content"]
+    except: return "⚠️ AI Engine temporarily bypassed."
 
-    def sanitize_identifier(self, p):
-        # ذكاء اصطناعي لتنقية الرقم وتنسيقه دولياً
-        p = re.sub(r'[^\d]', '', p)
-        if p.startswith('01') and len(p) == 11: return '20' + p
-        return p
+# -----------------------------
+# 🎨 UI: THE NEON EMPIRE STYLE
+# -----------------------------
+st.set_page_config(page_title="GEORGE TITAN V12", layout="wide", page_icon="🔱")
 
-    def execute_deep_scan(self, identifier):
-        target = self.sanitize_identifier(identifier)
-        url = f"https://phoneintelligence.abstractapi.com/v1/?api_key={self.api_key}&phone={target}"
-        try:
-            response = requests.get(url, timeout=20)
-            if response.status_code == 200:
-                data = response.json()
-                return data if data.get('valid') else None
-            return None
-        except Exception: return None
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@900&family=JetBrains+Mono&display=swap');
+    .stApp { background-color: #020202; color: #D4AF37; font-family: 'JetBrains Mono', monospace; }
+    .main-title { font-family: 'Orbitron', sans-serif; font-size: 5rem; text-align: center; 
+                  background: linear-gradient(180deg, #D4AF37, #FFFFFF); -webkit-background-clip: text; 
+                  -webkit-text-fill-color: transparent; filter: drop-shadow(0 0 25px #D4AF37); margin: 0; }
+    .stSidebar { border-right: 1px solid #D4AF37; background: #000 !important; }
+    div.stButton > button { border: 1px solid #D4AF37 !important; background: transparent !important; color: #D4AF37 !important; 
+                            font-weight: bold; width: 100%; transition: 0.4s; height: 3em; }
+    div.stButton > button:hover { background: #D4AF37 !important; color: black !important; box-shadow: 0 0 50px #D4AF37; }
+    .report-card { border: 1px solid #D4AF37; padding: 20px; border-radius: 10px; background: rgba(212, 175, 55, 0.05); }
+</style>
+""", unsafe_allow_html=True)
 
-# ------------------------------------------------------------------------------
-# [MODULE 4: DOSSIER GENERATOR - محرك التقارير العسكرية]
-# ------------------------------------------------------------------------------
-def generate_george_dossier(data, target, hash_id):
-    dossier = f"""
-######################################################################
-#              TOP SECRET - GEORGE SUPREMACY DOSSIER                 #
-######################################################################
-# OPERATOR ID   : GEORGE FAHMY (SUPREME COMMANDER)                   #
-# OPERATION ID  : {hash_id}                                          #
-# TARGET ID     : {target}                                           #
-# TIMESTAMP     : {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}      #
-######################################################################
-
-[+] CARRIER INTELLIGENCE:
--------------------------
-> PROVIDER     : {data.get('carrier', 'UNKNOWN')}
-> LINE TYPE    : {data.get('type', 'SECURE')}
-> VALIDATION   : VERIFIED BY GEORGE SYSTEMS
-
-[+] GEOGRAPHIC LOCALIZATION:
-----------------------------
-> COUNTRY      : {data.get('country', {}).get('name', 'GLOBAL')}
-> COORDINATES  : {data.get('location', 'ENCRYPTED')}
-> TIMEZONE     : {data.get('timezones', ['UTC'])[0]}
-
-[+] SECURITY ASSESSMENT:
-------------------------
-> STATUS       : FULLY COMPROMISED
-> ACCESS LEVEL : GOD MODE
-> TRACE        : ALPHA-OMNIBUS-1000
-
-######################################################################
-#      CONFIDENTIAL PROPERTY OF THE GEORGE CYBER EMPIRE              #
-######################################################################
-    """
-    return dossier
-
-# ------------------------------------------------------------------------------
-# [MODULE 5: THE COMMAND CENTER - مركز القيادة والتحكم]
-# ------------------------------------------------------------------------------
+# -----------------------------
+# 🚀 MAIN CONTROLLER
+# -----------------------------
 def main():
-    if 'strike_success' not in st.session_state: st.session_state['strike_success'] = False
-    
-    apply_titan_theme(st.session_state['strike_success'])
-    vault = GeorgeTitanVault()
-    titan_intel = IntelTitanCore()
+    if "auth" not in st.session_state: st.session_state.auth = None
 
-    st.markdown("<h1 class='titan-header'>GEORGE TITAN OS</h1>", unsafe_allow_html=True)
-    st.sidebar.markdown(f"<h2 style='color:#D4AF37; text-align:center;'>KING GEORGE CONTROL</h2>", unsafe_allow_html=True)
-    
-    module = st.sidebar.radio("SELECT MISSION MODULE", ["🚀 STRIKE OPS", "📂 THE VAULT", "📊 GLOBAL ANALYTICS", "⚙️ SYSTEM RESET"])
+    # --- PHASE 1: AUTHENTICATION ---
+    if not st.session_state.auth:
+        st.markdown("<h1 class='main-title'>TITAN SUPREME</h1>", unsafe_allow_html=True)
+        st.write("<p style='text-align:center;'>COMMUNITY EDITION | UNLOCKED</p>", unsafe_allow_html=True)
+        
+        tab_log, tab_reg = st.tabs(["🔐 SECURE ACCESS", "🆔 IDENTITY INITIALIZATION"])
+        
+        with tab_log:
+            u = st.text_input("Operator ID")
+            p = st.text_input("Access Code", type="password")
+            if st.button("AUTHENTICATE"):
+                hp = hashlib.sha256(p.encode()).hexdigest()
+                db.c.execute("SELECT * FROM users WHERE username=? AND password=?", (u, hp))
+                user = db.c.fetchone()
+                if user:
+                    if user[4] == "BANNED": st.error("ACCESS REVOKED: ACCOUNT SUSPENDED")
+                    else:
+                        st.session_state.auth = {"user": user[1], "role": user[3]}
+                        TitanNotifier.send_alert(f"🟢 **LOGIN SUCCESS**\nOperator: {u}")
+                        st.rerun()
+                else: st.error("INVALID IDENTITY")
 
-    if module == "🚀 STRIKE OPS":
-        c1, c2 = st.columns([1, 1.5])
-        with c1:
-            st.subheader("🎯 Target Acquisition")
-            raw_target = st.text_input("ENTER IDENTIFIER")
+        with tab_reg:
+            nu = st.text_input("New ID")
+            np = st.text_input("New Code", type="password")
+            if st.button("LOCK IDENTITY"):
+                try:
+                    hp = hashlib.sha256(np.encode()).hexdigest()
+                    role = "ADMIN" if nu.lower() == "george" else "OPERATOR"
+                    db.c.execute("INSERT INTO users (username, password, role, status) VALUES (?,?,?,?)", (nu, hp, role, "ACTIVE"))
+                    db.conn.commit()
+                    st.success("Identity Synchronized. You can now login.")
+                    TitanNotifier.send_alert(f"🆕 **NEW REGISTRATION**\nUser: {nu} | Role: {role}")
+                except: st.error("ID Already Exists.")
+
+    # --- PHASE 2: OPERATION ---
+    else:
+        st.sidebar.markdown(f"### 🛡️ ACTIVE: {st.session_state.auth['user']}")
+        st.sidebar.markdown(f"**ROLE:** {st.session_state.auth['role']}")
+        nav = st.sidebar.radio("SYSTEM MENU", ["🎯 SCANNER", "📊 VAULT", "👑 ADMIN CORE", "🚪 TERMINATE"])
+
+        if nav == "🎯 SCANNER":
+            st.markdown("<h2 style='text-align:center;'>INTELLIGENCE SCANNER</h2>", unsafe_allow_html=True)
+            target = st.text_input("ENTER TARGET IDENTIFIER (Phone)", placeholder="e.g. 201xxxxxxxxx")
             
-            if st.button("LAUNCH SUPREME ANNIHILATION"):
-                res = titan_intel.execute_deep_scan(raw_target)
-                if res:
-                    st.session_state['strike_success'] = True
-                    st.session_state['current_res'] = res
-                    st.session_state['current_target'] = raw_target
-                    hid = vault.log_operation(raw_target, res.get('carrier'), res.get('country', {}).get('name'), res.get('location'))
-                    st.session_state['current_hash'] = hid
-                    
-                    # صوت السيادة الملكية
-                    st.markdown('<audio autoplay><source src="https://translate.google.com/translate_tts?ie=UTF-8&q=%D8%AA%D9%85%20%D8%A7%D9%84%D8%A7%D8%AE%D8%AA%D8%B1%D8%A7%D9%82%20%D8%A8%D9%86%D8%AC%D8%A7%D8%AD%20%D8%B9%D9%86%20%D8%B7%D8%B1%D9%8A%D9%82%20%D8%A7%D9%84%D9%85%D9%84%D9%83%20GEORGE&tl=ar&client=tw-ob"></audio>', unsafe_allow_html=True)
-                    st.rerun()
-                else: st.error("ACCESS DENIED: SHIELD ACTIVE")
+            if st.button("EXECUTE OMNI-SCAN"):
+                if target:
+                    with st.spinner("Bypassing Network Filters..."):
+                        try:
+                            # استدعاء الـ API الخاص بك
+                            res = requests.post(BACKEND_URL, json={"phone": target}, timeout=15)
+                            data = res.json()
+                            
+                            if data.get("valid"):
+                                st.markdown("<div class='report-card'>", unsafe_allow_html=True)
+                                st.success("✅ TARGET COMPROMISED")
+                                
+                                # عرض البيانات
+                                col_a, col_b = st.columns(2)
+                                with col_a:
+                                    st.write(f"📡 **Carrier:** {data.get('carrier')}")
+                                    st.write(f"🌍 **Country:** {data.get('country', {}).get('name')}")
+                                    st.write(f"📱 **Type:** {data.get('type')}")
+                                
+                                with col_b:
+                                    st.subheader("🤖 AI Strategic Insights")
+                                    st.info(get_ai_insight(data))
+                                
+                                st.markdown("</div>", unsafe_allow_html=True)
 
-        with c2:
-            if 'current_res' in st.session_state:
-                st.markdown('<div class="terminal-window">', unsafe_allow_html=True)
-                dos = generate_george_dossier(st.session_state['current_res'], st.session_state['current_target'], st.session_state['current_hash'])
-                st.code(dos, language="python")
-                st.markdown('</div>', unsafe_allow_html=True)
-                st.download_button("📥 DOWNLOAD TITAN DOSSIER", dos, file_name=f"GEORGE_TITAN_{st.session_state['current_hash']}.txt")
+                                # التسجيل في القاعدة والإشعارات
+                                db.c.execute("INSERT INTO logs VALUES (?,?,?,?)", 
+                                             (st.session_state.auth['user'], target, data.get('carrier'), str(datetime.now())))
+                                db.conn.commit()
+                                TitanNotifier.send_alert(f"🎯 **SCAN SUCCESS**\nBy: {st.session_state.auth['user']}\nTarget: {target}")
+                            else: st.error("Target Node Invalid.")
+                        except: st.error("CRITICAL: Backend offline.")
+                else: st.warning("Target identifier required.")
 
-    elif module == "📂 THE VAULT":
-        st.header("📂 Permanent Strike Logs")
-        with sqlite3.connect('george_titan_records.db') as conn:
-            df = pd.read_sql_query("SELECT * FROM strikes ORDER BY id DESC", conn)
-            st.dataframe(df, use_container_width=True)
+        elif nav == "📊 VAULT":
+            st.header("📂 Operation Archives")
+            logs_df = pd.read_sql_query("SELECT * FROM logs", db.conn)
+            st.dataframe(logs_df.sort_index(ascending=False), use_container_width=True)
 
-    elif module == "📊 GLOBAL ANALYTICS":
-        st.header("📊 Intelligence Statistics")
-        with sqlite3.connect('george_titan_records.db') as conn:
-            df = pd.read_sql_query("SELECT carrier, country FROM strikes", conn)
-            if not df.empty:
-                f1 = px.pie(df, names='carrier', hole=0.5, title="Dominance by Carrier")
-                f1.update_layout(paper_bgcolor="black", font_color="#D4AF37")
-                st.plotly_chart(f1)
-            else: st.info("No data in vault.")
+        elif nav == "👑 ADMIN CORE":
+            if st.session_state.auth['role'] == "ADMIN":
+                st.header("Admin Level Control")
+                u_list = pd.read_sql_query("SELECT id, username, role, status FROM users", db.conn)
+                st.table(u_list)
+                
+                target_user = st.selectbox("Select User to Modify", u_list['username'])
+                c1, c2 = st.columns(2)
+                if c1.button("🚫 BAN USER"):
+                    db.c.execute("UPDATE users SET status='BANNED' WHERE username=?", (target_user,))
+                    db.conn.commit()
+                    st.warning(f"User {target_user} Suspended.")
+                if c2.button("✅ ACTIVATE USER"):
+                    db.c.execute("UPDATE users SET status='ACTIVE' WHERE username=?", (target_user,))
+                    db.conn.commit()
+                    st.success(f"User {target_user} Reactivated.")
+            else: st.error("SECURITY ALERT: ACCESS DENIED.")
 
-    elif module == "⚙️ SYSTEM RESET":
-        if st.button("PURGE ALL SYSTEMS"):
-            st.session_state['strike_success'] = False
-            st.success("SYSTEM NEUTRALIZED")
+        elif nav == "🚪 TERMINATE":
+            TitanNotifier.send_alert(f"🔴 **TERMINATED**\nOperator: {st.session_state.user_auth['user']}")
+            st.session_state.auth = None
+            st.rerun()
 
 if __name__ == "__main__":
     main()
