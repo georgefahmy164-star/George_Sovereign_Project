@@ -1,4 +1,37 @@
-# ==============================================================================
+import streamlit as st
+import requests
+
+# جلب المفتاح بأمان
+NUM_KEY = st.secrets.get("NUMVERIFY_KEY", "")
+
+def fix_and_scan(phone):
+    # تنظيف الرقم تلقائياً
+    target = phone.strip().replace(" ", "").replace("+", "")
+    if target.startswith('0'): target = '20' + target[1:]
+    
+    url = f"http://apilayer.net/api/validate?access_key={NUM_KEY}&number={target}"
+    try:
+        res = requests.get(url, timeout=10)
+        return res.json()
+    except: return {"error": {"info": "Connection Timeout"}}
+
+st.title("🔱 TITAN APEX V21")
+num = st.text_input("Enter Target", placeholder="201229166011")
+
+if st.button("EXECUTE ANALYSIS"):
+    if not NUM_KEY:
+        st.error("🚨 API Key missing in Secrets!")
+    else:
+        with st.spinner("Analyzing..."):
+            data = fix_and_scan(num)
+            if data.get("valid"):
+                st.success("Target Found!")
+                st.json(data)
+            else:
+                # إظهار سبب الخطأ الحقيقي (زي اللي في الصورة)
+                error_msg = data.get("error", {}).get("info", "Invalid Number")
+                st.error(f"❌ {error_msg}")
+                # ==============================================================================
 # 👑 PROJECT: GEORGE TITAN - THE APEX (V20 - FINAL STABLE)
 # 👑 ARCHITECT: GEORGE FAHMY (OSINT SPECIALIST)
 # 👑 SECURITY: MAXIMUM | STATUS: 100% OPERATIONAL
