@@ -1,2 +1,5 @@
 streamlit
-pycryptodome
+requests
+folium
+streamlit-folium
+pandas
