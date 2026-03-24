@@ -3,3 +3,6 @@ requests
 folium
 streamlit-folium
 pandas
+beautifulsoup4
+cryptography
+stegano
