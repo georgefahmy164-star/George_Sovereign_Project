@@ -1,120 +1,104 @@
 # ==============================================================================
-# 👑 PROJECT: GEORGE TITAN - THE OMNI-ARCHITECT (FINAL V17.5)
-# 👑 FEATURES: PHONE OSINT + IP TRACKER + SATELLITE MAPS
-# 👑 SECURITY: ENHANCED SESSION & SECRETS MANAGEMENT
+# 👑 PROJECT: GEORGE TITAN - THE APEX (V20 - FINAL STABLE)
+# 👑 ARCHITECT: GEORGE FAHMY (OSINT SPECIALIST)
+# 👑 SECURITY: MAXIMUM | STATUS: 100% OPERATIONAL
 # ==============================================================================
 
 import streamlit as st
 import requests
 import folium
 from streamlit_folium import st_folium
-import pandas as pd
-from datetime import datetime
 
 # -----------------------------
 # 🛡️ CONFIGURATION (SECRETS)
 # -----------------------------
-# تأكد من إضافة المفتاح في إعدادات Secrets بالموقع باسم: NUMVERIFY_KEY
+# تأكد من وضع المفتاح في Streamlit Secrets باسم: NUMVERIFY_KEY
 NUM_KEY = st.secrets.get("NUMVERIFY_KEY", "")
 
-class TitanCore:
+class TitanApex:
     @staticmethod
-    @st.cache_data(ttl=600) # تخزين النتائج لمدة 10 دقائق لتقليل استهلاك الـ API والـ Crash
-    def scan_phone(phone, api_key):
-        clean_phone = phone.strip().replace(" ", "").replace("+", "")
-        # الـ API يحتاج الرقم بدون + وبكود الدولة
-        url = f"http://apilayer.net/api/validate?access_key={api_key}&number={clean_phone}"
-        try:
-            res = requests.get(url, timeout=10)
-            return res.json()
-        except: return {"error": "Connection Timeout"}
+    def fix_phone_format(phone):
+        """تنظيف وتعديل صيغة الرقم تلقائياً لضمان استجابة الـ API"""
+        clean = phone.strip().replace(" ", "").replace("+", "")
+        # لو بدأ بـ 0، بنحوله لكود مصر 20
+        if clean.startswith('0'):
+            clean = '20' + clean[1:]
+        # لو الرقم 10 أرقام (بدون كود الدولة وبدون 0) بنضيف 20
+        elif len(clean) == 10:
+            clean = '20' + clean
+        return clean
 
     @staticmethod
-    @st.cache_data(ttl=600)
-    def scan_ip(ip_address):
-        url = f"http://ip-api.com/json/{ip_address}"
+    @st.cache_data(ttl=600) # يمنع الـ Crash ويحفظ النتائج مؤقتاً
+    def get_intel(phone, key):
+        formatted_target = TitanApex.fix_phone_format(phone)
+        url = f"http://apilayer.net/api/validate?access_key={key}&number={formatted_target}"
         try:
-            res = requests.get(url, timeout=10)
+            res = requests.get(url, timeout=15)
             return res.json()
-        except: return {"error": "IP Trace Failed"}
+        except Exception as e:
+            return {"error": {"info": str(e)}}
 
-# --- 🎨 UI: ROYAL DARK THEME ---
-st.set_page_config(page_title="GEORGE TITAN V17", layout="wide")
+# --- 🎨 UI DESIGN: THE ROYAL DARK THEME ---
+st.set_page_config(page_title="GEORGE TITAN V20", layout="centered")
 
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap');
     .stApp { background-color: #050505; color: #D4AF37; }
     .main-title { font-family: 'Orbitron', sans-serif; font-size: 3rem; text-align: center; 
-                  color: #D4AF37; text-shadow: 0 0 20px #D4AF37; margin-bottom: 30px; }
-    .stTextInput>div>div>input { background-color: #111; color: #D4AF37; border: 1px solid #D4AF37; }
-    div.stButton > button { border: 2px solid #D4AF37 !important; background: transparent !important; color: #D4AF37 !important; width: 100%; height: 3em; font-weight: bold; }
+                  color: #D4AF37; text-shadow: 0 0 20px #D4AF37; margin-bottom: 20px; }
+    div.stButton > button { border: 2px solid #D4AF37 !important; background: transparent !important; color: #D4AF37 !important; width: 100%; font-weight: bold; }
     div.stButton > button:hover { background: #D4AF37 !important; color: black !important; box-shadow: 0 0 30px #D4AF37; }
 </style>
 """, unsafe_allow_html=True)
 
-# -----------------------------
-# 🚀 APP INTERFACE
-# -----------------------------
-def main():
-    st.markdown("<h1 class='main-title'>🔱 GEORGE TITAN OMNI-V17</h1>", unsafe_allow_html=True)
+# 🚀 MAIN APP
+st.markdown("<h1 class='main-title'>🔱 TITAN APEX V20</h1>", unsafe_allow_html=True)
+st.sidebar.markdown(f"### 🛡️ OPERATOR: **GEORGE**")
+
+# اختيار الوحدة
+module = st.sidebar.selectbox("COMMAND MODULE", ["🎯 Phone Scanner", "🌐 IP Map Tracker"])
+
+if module == "🎯 Phone Scanner":
+    st.subheader("Advanced Phone Intelligence")
+    target = st.text_input("Enter Target Number (e.g. 01229166011)")
     
-    # القائمة الجانبية (Sidebar)
-    with st.sidebar:
-        st.header("🛠️ Command Center")
-        module = st.radio("Select Mission:", ["🎯 Phone Scanner", "🌐 IP Map Tracker"])
-        st.divider()
-        st.write("👤 Operator: **GEORGE**")
-        st.caption(f"System Time: {datetime.now().strftime('%H:%M:%S')}")
+    if st.button("EXECUTE ANALYSIS"):
+        if not NUM_KEY:
+            st.error("🚨 API Key is missing in Streamlit Secrets!")
+        elif target:
+            with st.spinner("Bypassing Network Nodes..."):
+                data = TitanApex.get_intel(target, NUM_KEY)
+                
+                if data.get("valid"):
+                    st.success("Target Synchronized ✅")
+                    col1, col2, col3 = st.columns(3)
+                    col1.metric("Carrier", data.get("carrier"))
+                    col2.metric("Country", data.get("country_name"))
+                    col3.metric("Type", data.get("line_type"))
+                    with st.expander("Show Detailed Metadata"):
+                        st.json(data)
+                else:
+                    error_msg = data.get("error", {}).get("info", "Check Number Format")
+                    st.error(f"❌ Analysis Failed: {error_msg}")
+                    st.info("💡 Pro Tip: Try entering 201229166011")
 
-    # 1. موديل فحص الهاتف
-    if module == "🎯 Phone Scanner":
-        st.subheader("Target Intelligence: Phone Metadata")
-        target_phone = st.text_input("Enter Phone Number (e.g., 201229166011)")
-        
-        if st.button("LAUNCH PHONE ANALYSIS"):
-            if not NUM_KEY:
-                st.error("🚨 API Key missing! Add 'NUMVERIFY_KEY' to Streamlit Secrets.")
-            elif target_phone:
-                with st.spinner("Decrypting Network Signals..."):
-                    data = TitanCore.scan_phone(target_phone, NUM_KEY)
-                    if data.get("valid"):
-                        st.success("Target Synchronized ✅")
-                        col1, col2, col3 = st.columns(3)
-                        col1.metric("Carrier", data.get("carrier"))
-                        col2.metric("Country", data.get("country_name"))
-                        col3.metric("Line Type", data.get("line_type"))
-                        with st.expander("Show Full Metadata"):
-                            st.json(data)
-                    else: st.error("Target verification failed. Check format.")
+elif module == "🌐 IP Map Tracker":
+    st.subheader("Global Node Mapping")
+    ip_target = st.text_input("Enter IP Address (e.g. 8.8.8.8)")
+    
+    if st.button("TRACE IP"):
+        if ip_target:
+            with st.spinner("Locking Satellite..."):
+                ip_res = requests.get(f"http://ip-api.com/json/{ip_target}").json()
+                if ip_res.get("status") == "success":
+                    st.success(f"Located: {ip_res.get('city')}, {ip_res.get('country')}")
+                    lat, lon = ip_res.get('lat'), ip_res.get('lon')
+                    m = folium.Map(location=[lat, lon], zoom_start=12, tiles="CartoDB dark_matter")
+                    folium.Marker([lat, lon], popup=ip_target).add_to(m)
+                    st_folium(m, width="100%", height=400)
+                else: st.error("IP Node not found.")
 
-    # 2. موديل تتبع الـ IP والخرائط
-    elif module == "🌐 IP Map Tracker":
-        st.subheader("Target Intelligence: Satellite IP Mapping")
-        target_ip = st.text_input("Enter IP Address (e.g., 8.8.8.8)")
-        
-        if st.button("TRACE & VISUALIZE"):
-            if target_ip:
-                with st.spinner("Locking Satellite Coordinates..."):
-                    ip_data = TitanCore.scan_ip(target_ip)
-                    if ip_data.get("status") == "success":
-                        st.success(f"Node Located: {ip_data.get('city')}, {ip_data.get('country')} ✅")
-                        
-                        # استخراج الإحداثيات ورسم الخريطة
-                        lat, lon = ip_data.get('lat'), ip_data.get('lon')
-                        m = folium.Map(location=[lat, lon], zoom_start=12, tiles="CartoDB dark_matter")
-                        folium.Marker(
-                            [lat, lon], 
-                            popup=f"IP: {target_ip}",
-                            icon=folium.Icon(color='orange', icon='dot')
-                        ).add_to(m)
-                        
-                        # عرض الخريطة
-                        st_folium(m, width="100%", height=450)
-                        
-                        # تفاصيل إضافية
-                        st.info(f"📍 ISP: {ip_data.get('isp')} | Org: {ip_data.get('org')}")
-                    else: st.error("IP Node not found.")
-
-if __name__ == "__main__":
-    main()
+st.sidebar.divider()
+st.sidebar.caption("Project: GEORGE SOVEREIGN")
